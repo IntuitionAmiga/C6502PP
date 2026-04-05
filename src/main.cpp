@@ -78,9 +78,31 @@ int main() {
         // cache warmup
         system.oCPU.run();
         system.oCPU.iProgramCounter = 0x400;
-
+        size_t iCount = 0;
         auto tStart = std::chrono::high_resolution_clock::now();
-        size_t iCount = system.oCPU.run();
+
+        // Time 10 runs
+        system.oCPU.iProgramCounter = 0x400;
+        iCount += system.oCPU.run();
+        system.oCPU.iProgramCounter = 0x400;
+        iCount += system.oCPU.run();
+        system.oCPU.iProgramCounter = 0x400;
+        iCount += system.oCPU.run();
+        system.oCPU.iProgramCounter = 0x400;
+        iCount += system.oCPU.run();
+        system.oCPU.iProgramCounter = 0x400;
+        iCount += system.oCPU.run();
+        system.oCPU.iProgramCounter = 0x400;
+        iCount += system.oCPU.run();
+        system.oCPU.iProgramCounter = 0x400;
+        iCount += system.oCPU.run();
+        system.oCPU.iProgramCounter = 0x400;
+        iCount += system.oCPU.run();
+        system.oCPU.iProgramCounter = 0x400;
+        iCount += system.oCPU.run();
+        system.oCPU.iProgramCounter = 0x400;
+        iCount += system.oCPU.run();
+
         auto tElapsed = std::chrono::high_resolution_clock::now() - tStart;
 
         size_t iNanoSeconds = std::chrono::duration_cast<std::chrono::nanoseconds>(tElapsed).count();
