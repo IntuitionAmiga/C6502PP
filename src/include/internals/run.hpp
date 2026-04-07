@@ -6,7 +6,7 @@
 
 #ifdef INTERPRET_SWITCH // switch-case
 #   define OP(NAME)
-#   define handle(NAME) case NAME:
+#   define handle(NAME) case NAME: asm("# case " #NAME ": -->");
 #   define dispatch() /*++iCount;*/ break;
 #   define begin() for (;;) switch (oOutside.readByte(iProgramCounter))
 #   define done()
