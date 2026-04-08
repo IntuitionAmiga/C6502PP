@@ -10,7 +10,7 @@
 ### The most unnecessary port of the world's least sensible 6502 emulator!
 
 ## What
-A C++ implementation of [SixPhpive02](https://github.com/0xABADCAFE/sixphphive02)
+A C++ implementation of [SixPhphive02](https://github.com/0xABADCAFE/sixphphive02)
 - Compile Time Abstraction, uses templates and concepts in place of polymorphism and interfaces.
 - Supports original switch/case or computed goto jump table.
 - Achieves ~147x the performance of the Elephpant powered original on the same hardware.
@@ -212,3 +212,12 @@ The _CompileTimeSystem_ configuration is sometimes referred the _Motherboard Pat
 Contrast this to the standard OOP methodology in which the BusDevice would be some abstract class with concrete realisations. In that model, it is likely that readByte() etc. are virtual functions and as good as impossible to inline within the CPU code. A typical virtual function has a double indirection (virtual table access followed by getting the pointer in the table to the implementation code of the method).
 
 Here we are taking a bet that we don't want a runtime configured System but even if there were several to choose from, we can stamp them out at compile time and simply choose the one to use at runtime, all without ever taking the runtime virtual call hit.
+
+## Tweaks
+Since an approximate hundredfold increase in performance going from idiomatic OOP PHP to templated C++ wasn't enough, some additional changes were made to further improve performance:
+
+- The basic infinite loop around a switch/case model can be swapped for a jump table. This uses computed goto, which allows for _threaded dispatch_. This allows each opcode handler to calculate the next one to call and branch directly to it.
+- The table is reduced to 16-bit wide entries which dramatically improves L1 cache hit rate.
+- Even when templated and inlined, access to the Bus from the CPU code still must go via the reference. By assigning this to a local reference variable and using the `__restrict__` qualifier we give the compiler the information it needs to put that reference into a register for the durarion of the interpeter job. This reduces both the number of native operations 
+and the number of memory accesses per emulated instruction.
+- Structures are aligned to the target architecture cache line width, or 64 if that value cannot be reliably determined at compile time.
