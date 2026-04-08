@@ -54,7 +54,11 @@ namespace C6502PP {
      * Defines Device with constructor dependency on BusDevice
      */
     template<typename D, typename B>
-    concept Processor = Device<D> && BusDevice<B> && std::constructible_from<D, B&>;
+    concept Processor = Device<D> && BusDevice<B> && std::constructible_from<D, B&> && requires(D d, Address address) {
+        { d.setProgramCounter(address) } noexcept -> std::same_as<D&>;
+        { d.getProgramCounter() } noexcept -> std::same_as<Address>;
+    };
+
 }
 
 #endif

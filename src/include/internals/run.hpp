@@ -37,6 +37,11 @@ using Jump = uint16_t;
 #define pull() (oOutside.readByte(++iStackPointer + STACK_BASE))
 #define push(byte) oOutside.writeByte(STACK_BASE + iStackPointer--, byte)
 
+#define lsrm(addr) oOutside.writeByte( \
+            iAddress, \
+            shiftRightWithCarry(oOutside.readByte((iAddress = addr))) \
+        )
+
     /**
      * Main run entry point. We need to make this interruptable, really.
      */
