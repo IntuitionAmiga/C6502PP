@@ -7,7 +7,7 @@
 namespace C6502PP {
 
 /**
- * CompileTymeSystem<Processor. BusDevice>
+ * CompileTimeSystem<Processor, BusDevice>
  *
  * Wraps an instance of a given Processor concept and BusDevice concept such that code generator is
  * able to inine away the read/write calls to the bus implementation.

@@ -2,7 +2,6 @@
 #include <cstdio>
 #include <new>
 #include "system.hpp"
-//#include "bus/memory.hpp"
 
 using namespace C6502PP;
 
@@ -35,6 +34,7 @@ void PerOpcodeCountObserver::reset() noexcept
     }
 }
 
+// Decide which system we are going to use.
 #ifdef STATIC_SYSTEM
     // Fast, 64KB+ on stack/heap, no virtual calls
     using SystemType = CompileTimeSystem<MOS6502, Bus::SimpleMemory>;
@@ -44,14 +44,6 @@ void PerOpcodeCountObserver::reset() noexcept
 #endif
 
 int main() {
-
-    // Define a system that uses the SimpleMemory realisation of BusDevice.
-
-    // static CompileTimeSystem<MOS6502, Bus::SimpleMemory, PerOpcodeCountObserver> system;
-
-    // static CompileTimeSystem<MOS6502, Bus::SimpleMemory> system;
-
-    // static RuntimeSystem<MOS6502, Bus::AbstractMemory> system;
 
     static SystemType system;
 
@@ -101,7 +93,7 @@ int main() {
         );
     }
 
-    // ROM name
+    // Klaus D Rom Test
     char const *sROM = "data/rom/diagnostic/6502_functional_test.bin";
 
     // Load up the ROM
@@ -157,5 +149,3 @@ int main() {
 
     return 0;
 }
-
-
