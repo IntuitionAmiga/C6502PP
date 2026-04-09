@@ -11,34 +11,34 @@ SRCS    := main.cpp memory.cpp
 # One-shot command to run all benchmarks and keep the binaries
 bench:
 	@echo "=========================================================="
-	@echo " STARTING THE 6502 PERFORMANCE JOURNEY"
+	@echo " Building"
 	@echo "=========================================================="
 	@$(MAKE) runtime_test
 	@$(MAKE) compiletime_test_sc
 	@$(MAKE) compiletime_test_sc_pin
 	@$(MAKE) compiletime_max
 	@echo "=========================================================="
-	@echo " BENCHMARK COMPLETE - Binaries saved as test_*"
+	@echo " Completed - Binaries saved as test_*"
 	@echo "=========================================================="
 
-# 1. THE TRAGEDY (Runtime System, Switch/Case, Unpinned, No LTO)
+# 1. Runtime Abstracted, switch-case, no other frills
 runtime_test:
-	@echo "\n--- 1. RUNTIME SYSTEM (Virtual, Switch, Unpinned, No LTO) ---"
+	@echo "\n--- 1. Runtime abstracted, switch/case ---"
 	@$(MAKE) build_run BIN_NAME="test_runtime" FLAGS="-DINTERPRET_SWITCH -DBUS_UNPINNED -fno-lto"
 
-# 2. THE TRANSITION (Compile Time System, Switch/Case, Unpinned, No LTO)
+# 2. Compile Time Abstracted, switch-case, no other frills
 compiletime_test_sc:
-	@echo "\n--- 2. COMPILE TIME (Static, Switch, Unpinned, No LTO) ---"
+	@echo "\n--- 2. Compile-time abstracted, switch/case ---"
 	@$(MAKE) build_run BIN_NAME="test_sc" FLAGS="-DSTATIC_SYSTEM -DINTERPRET_SWITCH -DBUS_UNPINNED -fno-lto"
 
-# 3. THE TUNED (Compile Time System, Switch/Case, Pinned, No LTO)
+# 3. Compile Time Abstracted, switch-case, dependency ref pinning
 compiletime_test_sc_pin:
-	@echo "\n--- 3. COMPILE TIME (Static, Switch, Pinned, No LTO) ---"
+	@echo "\n--- 3. Compile-time abstracted, switch/case, bus dependency reference pinned ---"
 	@$(MAKE) build_run BIN_NAME="test_sc_pin" FLAGS="-DSTATIC_SYSTEM -DINTERPRET_SWITCH -fno-lto"
 
-# 4. THE BEAST (Static System, Threaded Dispatch, Pinned, Full LTO)
+# 4. Compile Time Abstracted, goto and extras
 compiletime_max:
-	@echo "\n--- 4. COMPILE TIME (Static, Threaded, Pinned, LTO) ---"
+	@echo "\n--- 4. Compile-time abstracted, computed goto, bus dependency reference pinned, full LTO ---"
 	@$(MAKE) build_run BIN_NAME="test_max" FLAGS="-DSTATIC_SYSTEM -flto" LDFLAGS="-flto"
 
 # --- Internal Helper Rule ---
@@ -47,7 +47,7 @@ compiletime_max:
 build_run:
 	rm -f *.o
 	$(CC) $(BASE_CFLAGS) $(FLAGS) $(SRCS) -o $(BIN_NAME) $(LDFLAGS)
-	./$(BIN_NAME)
+#	./$(BIN_NAME)
 
 clean:
 	rm -f *.o test test_runtime test_sc test_sc_pin test_max
