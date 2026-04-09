@@ -15,20 +15,78 @@
 ## What
 A C++ implementation of [SixPhphive02](https://github.com/0xABADCAFE/sixphphive02)
 
-- Compile Time Abstracted
+- Compile Time Abstracted.
 - Uses _templates_ and _concepts_ in place of runtime polymorphism and interfaces.
 - Achieves **177x** the peak performance and **147x** of the Elephpant powered original on the same hardware, or **1500x** the peak performance of the real chip at 1 MHz.
 
 ## Why?
-Mainly a nerdsnipe, but also an excuse to play with a hypergolic mix of C++20 concepts and low level dirty GCC-isms.
+Mainly a nerdsnipe, but also an excuse to play with a hypergolic mix of C++20 concepts and low-level dirty GCC-isms. You might be able to use the code in an emulator, but it does not yet have cycle exactness or support the set of known illegal opcodes. On the flip side, the emulation code is entirely header based and therefore should be simple to integrate.
+
+## Building
+You'll need a recentish GCC version, I have only tested with 11.4. I only write the most basic makefiles, so I asked Gemini to write this one.
+
+```bash
+:~/$ git clone https://github.com/0xABADCAFE/C6502PP.git
+
+:~/$ cd C6502PP/src
+:~/C6502PP/src$ make bench
+```
+
+This should produce four binaries:
+
+- `test_runtime` - the most direct C++ port from the original PHP.
+- `test_sc` - initial conversion to compile-time abstraction.
+- `test_sc_pin` - experimenting with the pinning of the memory dependency reference.
+- `test_max` - conversion to threaded dispatch interpreter.
+
+Each binary performs two tests:
+
+- The fastest instruction throughput, based on execution long spans of NOP.
+- A more typical case instruction throughput, based on running a diagnostic ROM.
+
+Each test takes a few seconds to run and outputs the same data. For example:
+
+```bash
+:~/C6502PP/src$ time ./test_max
+sizeof(CompileTimeSystem) = 65664 bytes
+PC: 0x0000 => 0x00
+SP: 0x01FF => 0x00
+A: 0x00 [   0]
+X: 0x00 [   0]
+Y: 0x00 [   0]
+F: [- - | - - - Z -]
+Ran 3276800000 0xEA insructions in 4339283764 nanoseconds [755.148 MIPS]
+Loaded data/rom/diagnostic/6502_functional_test.bin
+Beginning execution from 0x0400
+Klaus Test Passed! Ran 306480490 insructions in 495112154 nanoseconds [619.012 MIPS]
+PC: 0x3469 => 0x4C
+SP: 0x01FF => 0x34
+A: 0xF0 [ -16]
+X: 0x0E [  14]
+Y: 0xFF [  -1]
+F: [N V | - - - - C]
+
+real	0m4.888s
+user	0m4.887s
+sys	0m0.002s
+```
+
+The initial and final state of the CPU emulator is shown, along with the nanosecond timing and implied performance. For the most reliable results you should run in the absence of other processes, with a fixed CPU speed (e.g. performance mode) and chain three successive executions together, eg.
+
+```bash
+:~/C6502PP/src$ ./test_max && ./test_max && ./test_max
+
+```
+
+Generally the first cold run will have the least reliable timing, whereas the subsequent runs are closer together as other variances are reduced.
 
 ## Results
 
-From silicon to SixPhphive02 through to four iterations of the C++ port.
+From silicon to SixPhphive02 through to the four iterations of the C++ port.
 
 ![Linear performance](./img/perf.png)
 
-The only way to really appreciate that is with a logarithmic scale.
+The only way to really appreciate gains that large is with a _logarithmic_ scale.
 
 ![Log10 performance](./img/perf_log10.png)
 
@@ -136,7 +194,7 @@ The peak NOP impact was pretty modest, 8.8% improvement. The corresponding 1.7% 
 
 Looking at the assembly language reminded me that _switch/case_ constructs are sometimes just not as fast as people like to think. Since I was compiling for 64-bit, the compiler was generating a jump table with 32-bit displacements from the program counter. 256 entries, 4 bytes each (1KiB) and all funneling though a central dispatch location. So I decided to change that to use _computed goto_.
 
-- This is a GCC-ism that allows the address of a label to be taken and used as an indirect _goto_ destination:
+- This is a GCC extension that allows the address of a label to be taken and used as an indirect _goto_ destination:
 
     - The address of a label can be taken into a variable, e.g. `uint8_t const* target = (uint8_t const*)&&some_label_to_goto_later;`
     - Invoking that is just `goto *target;`
@@ -148,7 +206,7 @@ Looking at the assembly language reminded me that _switch/case_ constructs are s
 - As the overall size of the executable was already around 32 KiB this got me thinking that I could construct an array of 16-bit offsets and this table would be half the size of the typical switch/case table.
 - Finally, the computed goto could be added at the end of each instruction handler to automatically determine where to go next, without branching backwards and forwards from the single dispatch location:
     - This approach is commonly known as _threaded dispatch_
-    - Note, not _threaded_ as in concurrent, but to run a thread through something.
+    - Note, that's not _threaded_ as in concurrent, but as in to run a thread through something.
 
 #### Insane in the domain...
 
@@ -197,10 +255,10 @@ For the switch/case model, this produces:
                 return;
         }
 ```
-For the computed goto model, something else... Something likely to make clean code advocates _very_ uncomfortable.
+For the computed goto model, something rather different:
 
 ```C++
-        // Scary narrow 16-bit jump offsets
+        // Risky narrow 16-bit jump offsets - what if the distance ever gets bigger than 65536?
         static uint16_t const aJumpTable[256] = {
             (uint16_t) ((uint8_t const*)&&L_BRK - (uint8_t const*)&&begin_interpreter),
             (uint16_t) ((uint8_t const*)&&L_ORA_IX - (uint8_t const*)&&begin_interpreter),
@@ -264,7 +322,7 @@ Given all this, what does our minimal opcode fetch/execute/disatch code _actuall
     	jmp	*%rdx                   ;    Off we go
 ```
 
-8 instructions, of which the last five are just the dispatch. The next most obvious optimisation would be to try and pin the program counter. This would shave off a load and store for every handler. Maybe next Easter.
+8 instructions, of which the last five are just the dispatch. The next most obvious optimisation would be to try and pin the program counter. This would shave off a load and store for every handler. Maybe one for next Easter.
 
 ## Tidying Up
 
@@ -376,7 +434,7 @@ For clarity, some tweaks are not shown here.
     - Uses `std::hardware_destructive_interference_size` if available or assumes 64, if not.
 
 - The jump table uses a `Jump` type, which is conditionally aliased as either `uint16_t` or `uint32_t`:
-    - It is not certain that a given target, e.g. ARM will generate compact enough code to fit within a 16-bit jump range.
+    - It is not certain that a given target, e.g. ARM, will generate compact enough code to fit within a 16-bit jump range.
     - Even with a 32-bit wide table, the other benefits of threaded dispatch still apply.
 
 - The main `run()` method that embeds the interpreter has the gcc `__attribute__((hot))` to ensure that the compiler knows to make aggressive optimisation choices within.
@@ -386,4 +444,12 @@ For clarity, some tweaks are not shown here.
     - Normally this security feature is used to validate that the branch instruction has hit a legal destination, triggering a trap otherwise.
  
 - All branch labels are aligned using `-falign-labels=16` which helps the CPU's fetch instruction mechanism when branching.
+
+## Further Work
+
+To improve the throughput further, pinning the program counter seems like an obvious idea but it's also going to reduce the set of registers available to the optimiser for other purposes.
+
+I also attempted a lazy-flags approach. For almost every instruction, the status register has to be updated which involves a fair amount of bitwise manipulation. Instead, I tried copying the result of the last operation to a local temporary that can be used to evaluate the N and V flags at the point where they first become necessary, i.e. on a conditional branch. This ultimately proved detrimental to performance but it might be the case that it can be revisited.
+
+Cycle exactness and known illegal instructions are desirable features to add if the emulator is ever going to be more than an educational exercise.
 
