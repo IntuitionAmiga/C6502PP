@@ -1,9 +1,12 @@
 ```
-            =========================
-              ┏━╸┏━┓┏━╸┏━┓┏━┓┏━┓┏━┓
-              ┃  ┣━┓┗━┓┃┃┃┏━┛┣━┛┣━┛
-              ┗━╸┗━┛┗━┛┗━┛┗━╸╹  ╹
-            =========================
+             | | | | | | | | | | | |
+           +=^=^=^=^=^=^=^=^=^=^=^=^=+
+           |  ┏━╸┏━┓┏━╸┏━┓┏━┓┏━┓┏━┓  |
+           |  ┃  ┣━┓┗━┓┃┃┃┏━┛┣━┛┣━┛ C|
+           |  ┗━╸┗━┛┗━┛┗━┛┗━╸╹  ╹    |
+           +=v=v=v=v=v=v=v=v=v=v=v=v=+
+             | | | | | | | | | | | |
+
             SixPhphive02 Goes Native!
 ```
 # C6502PP
@@ -11,39 +14,74 @@
 
 ## What
 A C++ implementation of [SixPhphive02](https://github.com/0xABADCAFE/sixphphive02)
-- Compile Time Abstraction, uses templates and concepts in place of polymorphism and interfaces.
-- Supports original switch/case or computed goto jump table.
-- Achieves ~147x the performance of the Elephpant powered original on the same hardware.
 
-## Why
+- Compile Time Abstracted
+- Uses _templates_ and _concepts_ in place of runtime polymorphism and interfaces.
+- Achieves **177x** the peak performance and **147x** of the Elephpant powered original on the same hardware, or **1500x** the peak performance of the real chip at 1 MHz.
+
+## Why?
 Mainly a nerdsnipe, but also an excuse to play with a hypergolic mix of C++20 concepts and low level dirty GCC-isms.
+
+## Results
+
+From silicon to SixPhphive02 through to four iterations of the C++ port.
+
+![Linear performance](./img/perf.png)
+
+The only way to really appreciate that is with a logarithmic scale.
+
+![Log10 performance](./img/perf_log10.png)
 
 ## A Journey
 
-### Origin
+You don't have to read this, but I hope you enjoy the folly if you do. Strap in.
 
-It was lockdown and SixPhphive02 was originally written for amusement and as an experiment in how you might go about such a thing in a language like PHP. The end result wasn't too bad and didn't stray too far away from good practise:
+### Origin Story
 
-- There were interfaces that were incrementally extended and merged, e.g. _IDevice_ that defined reset behaviours, _IByteAccessible_ that defined read/write behaviours, _IBusDevice_ that merged them and a _IProcessor_ interface that extended _IDevice_ adding more specific behaviours for a CPU.
-- There were concrete implementations, e.g. a 6502 implementation of _IProcessor_, RAM and ROM implementations of _IBusDevice_ and even a PageMapped device that managed a collection of other _IBusDevice_ instances that lived at different address.
-- The CPU class accepted an _IBusDevice_ implementation as a constructor dependency to keep things neatly decoupled.
-- The CPU class implemented a basic interpreter that in a loop pulled the next instuction byte from the bus and a _switch/case_ to handle the instruction.
+It was lockdown 2020 and _SixPhphive02_ was originally written for amusement and as an experiment in how you might go about such a thing in a language like PHP. The end result wasn't too bad and didn't stray too far away from good practise:
 
-To test the performance, two benchmarks were ran.
+- There were interfaces that were incrementally extended and merged, e.g.
+    - _IDevice_ that defined reset behaviours.
+    - _IByteAccessible_ that defined read/write behaviours.
+    - _IBusDevice_ union of _IDevice_ and _IByteAccessible_.
+    - _IProcessor_ interface that extended _IDevice_ adding more specific behaviours for a CPU.
 
-- The simplest possible instruction, NOP, was repeatedly executed in blocks of 32768 to get a baseline for the fastest throughtput.
-- The KlausD diagnostic ROM (used to validate the emulation was correct) was ran to completion and timed.
+- There were concrete implementations, e.g.
+    - A 6502 implementation of _IProcessor_ that implemented an interpreter loop that pulled the next instuction byte from the bus and a _switch/case_ to handle the it.
+    - RAM and ROM implementations of _IBusDevice_
+    - A PageMapped _IBusDevice_ that managed a collection of the other _IBusDevice_ instances that lived at different address, allowing a system of components to be assembled.
+    - A Bus level debug adapter _IBusDevice_ that could intercept and log all IO because nothing says awesome quite like a 2GiB debug log from a 64KiB addressable system.
 
-Knowing the total instruction counts for each, on a 2018 i7-7500U @ 3.5GHz running PHP 8.1 (at the time) without JIT:
+These were plumbed together using standard dependency injection:
 
-- NOP peaked at 4.31 MIPS
-- Klaus D diagnostic achieved 3.07 MIPS
+- The CPU accepted an _IBusDevice_ implementation as a constructor dependency to keep things neatly decoupled.
 
-If I am honest, this was actually better than I expected.
+As I was not in any way a 6502 expert, the famous [Klaus Dormann](https://github.com/Klaus2m5/6502_65C02_functional_tests) diagnostic ROM was used to validate the emulation was correct:
+
+- This tests every legal opcode and deadends into various endless loops for failures.
+- If all goes well, it deadends into an infinite loop at address 0x3469.
+
+The handler for unconditional branch was designed to exit if a branch jumps back to itself, meaning that the test exits and the test verified by checking the program counter.
+
+To test the performance, two benchmarks were ran:
+
+- NOP was repeatedly executed in blocks of 32768 to get a baseline for what should be the fastest throughtput.
+- The Klaus Dormann diagnostic was ran to completion (30648049 instructions up to and including the unconditional branch at 0x3469) and timed.
+
+Knowing the total instruction counts for each, on a 2018 i7-7500U @ 3.5GHz running PHP 8.1 (at the time) without JIT enabled:
+
+- NOP peaked at **4.31 MIPS**
+- Klaus Dormann diagnostic achieved **3.07 MIPS**
+
+This was actually better than I expected and is significantly faster than the original 6502 is at 1 MHz:
+
+- NOP takes 2 cycles, implying a **0.5 MIPS** peak.
+- Real code is typically quoted at **~0.4 MIPS**.
+- This tracks with the most commonly used instructions being 2-3 cycles.
 
 ### Today
 
-It was Easter and I wanted to mess around with something new but I didn't want the cognitive overhead of thinking what, so I thought I'd port SixPhphive02 to C++. 
+It was an Easter weekend and I wanted to mess around with something nerdy but equally I didn't want the cognitive overhead of thinking _what_. So I thought I'd port SixPhphive02 to C++. This covers two of my favourite high level programming languagues.
 
 ### Attempt 1
 
@@ -51,71 +89,186 @@ The first port was a like-for-like reimplementation. I didn't port everything, j
 
 - The CPU class ran a loop that fetched the next instruction byte from the _AbstractMemory_ dependency
 - A _switch/case_ was used to handle the instruction.
+- All the same bitwise manipulation of the status register for flags.
 
 The same basic benchmarks were ran on the same hardware under the same conditions:
 
-- NOP peaked at 433.54 MIPS
-- Klaus D diagnostic achieved 185.16 MIPS
+- NOP peaked at **433.54 MIPS**
+- Klaus Dormann diagnostic achieved **185.16 MIPS**
 
-This was already a **100x** speedup for the simplest operation and a **60x** speed up more generally.
+This was already a massive **100x** speedup over SixPhphive02 for the simplest operation and a **60x** speed up more generally.
 
 ### Attempt 2
 
-What I wanted to do was to try _compile time_ abstraction. The next iteration changed things:
+I should've called it, but what I really wanted to do was to try _compile time_ abstraction. The next iteration changed things:
 
-- The CPU became a template class that depended on another template for the memory.
-- The idea was that the required memory access methods should be inlineable and should be optimised away to direct array accesses.
-- Notions of how the data should be aligned to the machine cache width were included in the templating.
+- The CPU became a _template_ class that depended on another _template_ for the memory.
+- The idea was that the required memory access methods should be inlineable and should be optimised away to the direct array accesses that the memory implementation actually uses.
+- The source code still looks clean and properly separated by concern.
 
 The same benchmarks were repeated:
 
-- NOP peaked at 523.64 MIPS
-- Klaus D diagnostic achieved 294.75 MIPS
+- NOP peaked at **523.64 MIPS**
+- Klaus Dormann diagnostic achieved **294.75 MIPS**
 
-This was definitely a result supporting the compile time over runtime abstraction argument.
+This was definitely a result supporting the compile-time over runtime abstraction argument, giving a decent 20% improvement in the fastest NOP path and a whopping 60% improvement in general.
 
 ### Attempt 3
 
 I wanted to validate my assumptions about what was going on in the code and inspected the assembly:
 
 - The original version relied on `call` for the virtual functions and it was clear this was all stripped away for direct array access in the new version.
-- However, I did notice that the reference for the Memory instance was being reloaded in every handler.
+- However, I did notice that the reference for the Memory implementation instance was being reloaded in every handler.
 
-That surprised me because being such a hot reference you'd expect it to get put into a register. So I thought I might try and _pin_ it. To do that, I created a local reference with the same name as the member and marked it as `__restrict__` which is a promise to the compiler that it won't change over the lifetime of the scope it's defined in. This should make it easy for the compiler to keep it in a register and avoid having to constantly reload it.
+That surprised me because being such a hot reference you'd expect it to get put into a register. So I thought I might try and _pin_ it. To do that, I created a local reference with the same name as the member and marked it as `__restrict__` which is a promise to the compiler that it won't change over the lifetime of the scope it's defined in. This should make it easier for the compiler to keep it in a register and avoid having to constantly reload it.
 
 The same benchmarks were repeated:
 
-- NOP peaked at 569.16 MIPS
-- Klaus D diagnostic achieved 289.46 MIPS
+- NOP peaked at **569.16 MIPS**
+- Klaus Dormann diagnostic achieved **289.46 MIPS**
 
-The dip in the diagnostic performance was unexpected but completely repeatable. The assumption was that allocating the reference into a register reduced the number of registers available elsewhere potentially slowingdown some of the other operations.
+The peak NOP impact was pretty modest, 8.8% improvement. The corresponding 1.7% dip in the diagnostic performance was unexpected but completely repeatable.
 
+- The assumption was that allocating the reference into a register reduced the number of registers available elsewhere potentially slowing down some of the other operations.
 - Checking the generated assembler showed that the reference was indeed persisted in a register but it was not completely obvious which other instruction handlers had been impacted negatively.
 
 ### Attempt 4
 
-Looking at the assembly language reminded me that _switch/case_ constructs are sometimes not as fast as people like to think. Since I was compiling for 64-bit, the compiler was generating a jump table with 32-bit displacements from the program counter. 256 entries, 4 bytes each (1KiB) and all funneling though a central dispatch location. So I decided to change that to use _computed goto_.
+Looking at the assembly language reminded me that _switch/case_ constructs are sometimes just not as fast as people like to think. Since I was compiling for 64-bit, the compiler was generating a jump table with 32-bit displacements from the program counter. 256 entries, 4 bytes each (1KiB) and all funneling though a central dispatch location. So I decided to change that to use _computed goto_.
 
-- This is a GCC-ism that allows the address of a label to be taken and used as an indirect _goto_ destination.
-- The overall size of the executable was already around 32 KiB so this got me thinking that I could construct an array of 16-bit offsets using a bit of label arithmetic and this table would be half the size of the typical switch/case.
+- This is a GCC-ism that allows the address of a label to be taken and used as an indirect _goto_ destination:
+
+    - The address of a label can be taken into a variable, e.g. `uint8_t const* target = (uint8_t const*)&&some_label_to_goto_later;`
+    - Invoking that is just `goto *target;`
+    - The interesting thing is that you can use regular pointer arithmetic to get the code distance between two labels:
+ 
+        - Example, `size_t distance = ((uint8_t const*)&&later_label - (uint8_t const*)&&earlier_label);`
+        - If the distances are certain to be small enough, you can use a narrower type.
+ 
+- As the overall size of the executable was already around 32 KiB this got me thinking that I could construct an array of 16-bit offsets and this table would be half the size of the typical switch/case table.
 - Finally, the computed goto could be added at the end of each instruction handler to automatically determine where to go next, without branching backwards and forwards from the single dispatch location:
     - This approach is commonly known as _threaded dispatch_
     - Note, not _threaded_ as in concurrent, but to run a thread through something.
 
-Doing this without radically having to rewrite everything was solved using a set of regular preprocessor macros that either generate either the regular switch/case logic or the new computed goto.
+#### Insane in the domain...
 
-The same benchmarks were repeated:
+Doing this without radically having to rewrite everything was solved using a set of regular preprocessor macros that generate either the regular switch/case logic or the new computed goto, depending on build flags. This formed a new domain language for writing handlers:
 
-- NOP peaked at 761.93 MIPS
-- Klaus D achived 452.20 MIPS
+```
+        begin() {
+            handle(LDA_IM) {
+                updateNZ(iAccumulator = load(iProgramCounter + 1));
+                size(LDA_IM);
+                dispatch();
+            }
 
-That's now **176.8x** faster than the original PHP in the simplest case and **147.3x** faster more generally.
+            handle(LDA_ZP) {
+                updateNZ(iAccumulator = load(addrZeroPageByte()));
+                size(LDA_ZP);
+                dispatch();
+            }
 
+            // Big snip...
 
-### Tidying Up
+            illegal();
+        }
 
-Understandably the code was a bit of a mess by now so in order to bring some sanity to all the templating, I decided to try C++20 _concepts_ to bring it together by reintroducing the basic ideas that _interfaces_ were used to solve in the first versions:
+```
 
+For the switch/case model, this produces:
+```C++
+        // Forever
+        for (;;) switch (oOutside.readByte(iProgramCounter)) {
+            case LDA_IM: {
+                updateNZ(iAccumulator = oOutside.readByte(iProgramCounter + 1));
+                iProgramCounter += SIZE_LDA_IM;
+                break;
+            }
+
+            case LDA_ZP: {
+                updateNZ(iAccumulator = oOutside.readByte(addrZeroPageByte()));
+                iProgramCounter += SIZE_LDA_ZP;
+                break;
+            }
+
+            // One mass of cases later...
+
+            default:
+                return;
+        }
+```
+For the computed goto model, something else... Something likely to make clean code advocates _very_ uncomfortable.
+
+```C++
+        // Scary narrow 16-bit jump offsets
+        static uint16_t const aJumpTable[256] = {
+            (uint16_t) ((uint8_t const*)&&L_BRK - (uint8_t const*)&&begin_interpreter),
+            (uint16_t) ((uint8_t const*)&&L_ORA_IX - (uint8_t const*)&&begin_interpreter),
+            (uint16_t) ((uint8_t const*)&&L_BAD - (uint8_t const*)&&begin_interpreter), // No legal opcode 0x02
+            // ...
+            (uint16_t) ((uint8_t const*)&&L_BAD - (uint8_t const*)&&begin_interpreter), // No legal opcode 0xFF
+        };
+
+        // Here be gotos...
+
+        begin_interpreter:
+            // To dispatch, add the offset for the current opcode onto this base label address to reconstruct the target label address.
+            goto *((uint8_t const*)&&begin_interpreter + aJumpTable[oOutside.readByte(iProgramCounter)]);
+        {
+            // We stay in this block, jumping from label to label, until something causes us to leave.
+            L_LDA_IM: {
+                updateNZ(iAccumulator = oOutside.readByte(iProgramCounter + 1));
+                iProgramCounter += SIZE_LDA_IM;
+
+                // Jump straight to the next handler...
+                goto *((uint8_t const*)&&begin_interpreter + aJumpTable[oOutside.readByte(iProgramCounter)]);
+            }
+
+            L_LDA_ZP: {
+                updateNZ(iAccumulator = oOutside.readByte(addrZeroPageByte()));
+                iProgramCounter += SIZE_LDA_ZP;
+
+                // Jump straight to the next handler...
+                goto *((uint8_t const*)&&begin_interpreter + aJumpTable[oOutside.readByte(iProgramCounter)]);
+            }
+
+            // More labels than a fashion victim later...
+
+            L_BAD:
+                // Nothing to do here, we fall out of this block and we are done.
+        }
+```
+
+All that said, only the numbers matter. The same benchmarks were repeated:
+
+- NOP peaked at **761.93 MIPS**
+- Klaus Dormann achived **452.20 MIPS**
+
+This was more like it. A 34% gain in the NOP path and a 56% gain for the general case.
+
+Putting it into perspective, **176.8x** faster than the original PHP SixPhphive02 in the simplest case and **147.3x** faster in the general case.
+
+**Anatomy of the final NOP handler:**
+
+Given all this, what does our minimal opcode fetch/execute/disatch code _actually_ look like?
+
+```asm
+   .L_133: // Handler for the NOP instruction
+    	movzwl	16(%r14), %eax      ; Read the program counter from the CPU structure.
+    	leal	1(%rax), %edx       ; Increment
+    	movw	%dx, 16(%r14)       ; Store it back again.
+    	movzwl	%dx, %edx           ; Dispatch:
+    	movzbl	(%rcx,%rdx), %edx   ;    Read the opcode at the new program counter
+    	movzwl	(%rdi,%rdx,2), %edx ;    Load the 16-bit displacement
+    	addq	%rsi, %rdx          ;    Add to the label base
+    	jmp	*%rdx                   ;    Off we go
+```
+
+8 instructions, of which the last five are just the dispatch. The next most obvious optimisation would be to try and pin the program counter. This would shave off a load and store for every handler. Maybe next Easter.
+
+## Tidying Up
+
+Understandably the code was a bit of a mess by now so in order to bring some sanity to all the templating, I decided to try C++20 _concepts_ to bring it together by reintroducing the basic ideas that _interfaces_ were used to solve in the first versions. Finally the original interfaces for the abstract memory were updated to be template substitutable within the broader compile-time abstracted model.
 
 ```C++
 
@@ -169,7 +322,7 @@ Understandably the code was a bit of a mess by now so in order to bring some san
      * able to inine away the read/write calls to the bus implementation.
      */
     template <
-        template <typename> typename CPUType, // This is not the most intuitive syntax, is it?
+        template <typename> typename CPUType, // This is still not the most intuitive syntax, is it?
         BusDevice MemoryBus
     >
     struct CompileTimeSystem {
@@ -177,10 +330,11 @@ Understandably the code was a bit of a mess by now so in order to bring some san
         using CPU = CPUType<MemoryBus>;
     
         CPU oCPU;
-        MemoryBus oBus;
+        MemoryBus oBus; // Embedded adjacent, meaning the internal array is hyper local to the CPU members too.
     
         CompileTimeSystem() : oCPU(oBus) {
             // Ensure the CPU is constructed with the Bus
+            // We promise not to call any MemoryBus operations from the CPU constructor as it's not initialised yet.
         }
     
         CompileTimeSystem& run() {
@@ -212,3 +366,24 @@ The _CompileTimeSystem_ configuration is sometimes referred the _Motherboard Pat
 Contrast this to the standard OOP methodology in which the BusDevice would be some abstract class with concrete realisations. In that model, it is likely that readByte() etc. are virtual functions and as good as impossible to inline within the CPU code. A typical virtual function has a double indirection (virtual table access followed by getting the pointer in the table to the implementation code of the method).
 
 Here we are taking a bet that we don't want a runtime configured System but even if there were several to choose from, we can stamp them out at compile time and simply choose the one to use at runtime, all without ever taking the runtime virtual call hit.
+
+## Other Tweaks
+
+For clarity, some tweaks are not shown here.
+
+- Case and Label handlers use the C++ `asm("<text>")` construct to embed a comment into the generated assembler to assist manual inspection.
+- All structures are declared using `alignas(<size>)` to ensure that they are aligned on a cache line boundary.
+    - Uses `std::hardware_destructive_interference_size` if available or assumes 64, if not.
+
+- The jump table uses a `Jump` type, which is conditionally aliased as either `uint16_t` or `uint32_t`:
+    - It is not certain that a given target, e.g. ARM will generate compact enough code to fit within a 16-bit jump range.
+    - Even with a 32-bit wide table, the other benefits of threaded dispatch still apply.
+
+- The main `run()` method that embeds the interpreter has the gcc `__attribute__((hot))` to ensure that the compiler knows to make aggressive optimisation choices within.
+- The jump table has the gcc `__attribute__((section(".text")))` to ensure that it is allocated in the code (as opposed to data) section, adjacent to where it is used.
+- For x64, control flow checks are disabled using `-fcf-protection=none` which prevents the emission of a special branch target instruction:
+    - Functionally equivalent to a nop, this is added at the beginning of each label which adds a slight overhead.
+    - Normally this security feature is used to validate that the branch instruction has hit a legal destination, triggering a trap otherwise.
+ 
+- All branch labels are aligned using `-falign-labels=16` which helps the CPU's fetch instruction mechanism when branching.
+
