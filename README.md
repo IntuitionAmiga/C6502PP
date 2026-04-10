@@ -17,7 +17,7 @@ A C++ implementation of [SixPhphive02](https://github.com/0xABADCAFE/sixphphive0
 
 - Compile Time Abstracted.
 - Uses _templates_ and _concepts_ in place of runtime polymorphism and interfaces.
-- Achieves **177x** the peak performance and **147x** of the Elephpant powered original on the same hardware, or **1500x** the peak performance of the real chip at 1 MHz.
+- Reaches hundreds of MIPS on modern hardware, depending on interpreter configuration and workload.
 
 ## Why?
 Mainly a nerdsnipe, but also an excuse to play with a hypergolic mix of C++20 concepts and low-level dirty GCC-isms. You might be able to use the code in an emulator, but it does not yet have cycle exactness or support the set of known illegal opcodes. On the flip side, the emulation code is entirely header based and therefore should be simple to integrate.
@@ -80,9 +80,57 @@ The initial and final state of the CPU emulator is shown, along with the nanosec
 
 Generally the first cold run will have the least reliable timing, whereas the subsequent runs are closer together as other variances are reduced.
 
+## Benchmark Porting (from IntuitionEngine)
+
+This project includes a suite of 6502 benchmarks ported from [Zayn Otley's Intuition Engine](https://github.com/IntuitionAmiga/IntuitionEngine). These benchmarks provide a standardized workload to compare the performance of this C++ emulator against the original Go-based interpreter and JIT implementations.
+
+### Ported Workloads
+The following benchmark categories were extracted from the Intuition Engine's Go test suite:
+*   **ALU:** Register-heavy arithmetic operations (ADC, AND, EOR, etc.) in a tight counted loop.
+*   **Memory:** Zero-page load/store throughput testing memory bus efficiency.
+*   **Call:** JSR/RTS subroutine overhead, measuring block-exit and stack performance.
+*   **Branch:** Alternating taken/not-taken branch patterns to test pipeline/dispatch efficiency.
+*   **Mixed:** A complex interleaved workload of ALU, memory, stack, and branch operations.
+
+### Methodology
+To ensure an "apples-to-apples" comparison with Go's `testing.B` harness, our C++ `bench_harness` implements the same execution model:
+1.  **State Isolation:** All registers (`A`, `X`, `Y`, `SR`, `SP`) are reset using `softReset()` between every complete iteration of the benchmark loop.
+2.  **Duration-Based:** Each benchmark runs for a fixed 30-second window to gather statistically significant throughput data.
+3.  **MIPS Calculation:** Throughput is calculated as: `1.0e3 * total_instructions / nanoseconds`.
+4.  **Production Wiring:** The harness uses the same `SystemType` selection as the main executable, so the `Runtime` benchmark exercises the same `RuntimeSystem<MOS6502, Bus::AbstractMemory>` path as `test_runtime`.
+
+### Running the Suite
+You can run the full cross-interpreter benchmark suite, comparing the `Runtime` baseline plus the four compile-time configurations, using the provided script:
+
+```bash
+cd src && ./run_benchmarks.sh
+```
+
+For shorter smoke checks, you can override the default duration:
+
+```bash
+cd src && BENCH_SECONDS=1 ./run_benchmarks.sh
+```
+
+The script compiles the harness for each interpreter variant and prints a consolidated five-row performance table.
+
 ## Results
 
-From silicon to SixPhphive02 through to the four iterations of the C++ port.
+From silicon to SixPhphive02 through to the four iterations of the C++ port, and finally including benchmarks ported from [IntuitionEngine](https://github.com/IntuitionAmiga/IntuitionEngine).
+
+### Comparative Results (MIPS)
+
+The following table is one sample local run of the current benchmark matrix. Exact numbers are machine- and duration-dependent, so treat it as an example rather than a canonical ranking.
+
+| Interpreter | ALU | Memory | Call | Branch | Mixed |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Runtime** | 254.49 | 206.67 | 193.76 | 278.55 | 226.84 |
+| **StaticSC** | 356.87 | 408.77 | 391.41 | 404.81 | 373.64 |
+| **StaticSCPin** | 278.85 | 359.02 | 343.50 | 387.58 | 355.84 |
+| **StaticMaxGoto** | 318.74 | 394.80 | 401.67 | 400.39 | 389.61 |
+| **StaticMaxGotoLTO** | 314.16 | 395.62 | 391.00 | 418.27 | 353.68 |
+
+Numbers above were taken from a `BENCH_SECONDS=1` smoke run to keep the example quick to reproduce. Use the default 30-second duration for more stable comparisons.
 
 ![Linear performance](./img/perf.png)
 
@@ -96,7 +144,7 @@ You don't have to read this, but I hope you enjoy the folly if you do. Strap in.
 
 ### Origin Story
 
-It was lockdown 2020 and _SixPhphive02_ was originally written for amusement and as an experiment in how you might go about such a thing in a language like PHP. The end result wasn't too bad and didn't stray too far away from good practise:
+In 2023 and _SixPhphive02_ was originally written for amusement and as an experiment in how you might go about such a thing in a language like PHP. The end result wasn't too bad and didn't stray too far away from good practise:
 
 - There were interfaces that were incrementally extended and merged, e.g.
     - _IDevice_ that defined reset behaviours.
@@ -199,10 +247,10 @@ Looking at the assembly language reminded me that _switch/case_ constructs are s
     - The address of a label can be taken into a variable, e.g. `uint8_t const* target = (uint8_t const*)&&some_label_to_goto_later;`
     - Invoking that is just `goto *target;`
     - The interesting thing is that you can use regular pointer arithmetic to get the code distance between two labels:
- 
+
         - Example, `size_t distance = ((uint8_t const*)&&later_label - (uint8_t const*)&&earlier_label);`
         - If the distances are certain to be small enough, you can use a narrower type.
- 
+
 - As the overall size of the executable was already around 32 KiB this got me thinking that I could construct an array of 16-bit offsets and this table would be half the size of the typical switch/case table.
 - Finally, the computed goto could be added at the end of each instruction handler to automatically determine where to go next, without branching backwards and forwards from the single dispatch location:
     - This approach is commonly known as _threaded dispatch_
@@ -442,7 +490,7 @@ For clarity, some tweaks are not shown here.
 - For x64, control flow checks are disabled using `-fcf-protection=none` which prevents the emission of a special branch target instruction:
     - Functionally equivalent to a nop, this is added at the beginning of each label which adds a slight overhead.
     - Normally this security feature is used to validate that the branch instruction has hit a legal destination, triggering a trap otherwise.
- 
+
 - All branch labels are aligned using `-falign-labels=16` which helps the CPU's fetch instruction mechanism when branching.
 
 ## Further Work
@@ -452,4 +500,3 @@ To improve the throughput further, pinning the program counter seems like an obv
 I also attempted a lazy-flags approach. For almost every instruction, the status register has to be updated which involves a fair amount of bitwise manipulation. Instead, I tried copying the result of the last operation to a local temporary that can be used to evaluate the N and V flags at the point where they first become necessary, i.e. on a conditional branch. This ultimately proved detrimental to performance but it might be the case that it can be revisited.
 
 Cycle exactness and known illegal instructions are desirable features to add if the emulator is ever going to be more than an educational exercise.
-

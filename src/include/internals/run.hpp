@@ -24,7 +24,7 @@ using Jump = uint16_t;
 #   define OP(NAME) L_ ## NAME
 #   define handle(NAME) OP(NAME): asm("# handle(" #NAME ") -->");
 #   define JTE(NAME)  (Jump) ((uint8_t const*)&&OP(NAME) - (uint8_t const*)&&begin_interpreter)
-#   define dispatch() /*++iCount;*/ goto *((uint8_t*)&&begin_interpreter + aJumpTable[oOpcodeObserver.observe(oOutside.readByte(iProgramCounter))])
+#   define dispatch() goto *((uint8_t*)&&begin_interpreter + aJumpTable[oOpcodeObserver.observe(oOutside.readByte(iProgramCounter))])
 #   define begin() \
     begin_interpreter: \
     dispatch();
@@ -63,7 +63,7 @@ using Jump = uint16_t;
         alignas(NativeCacheLine) static Jump const aJumpTable[256] __attribute__((section(".text"))) = {
             JTE(BRK), // 0x00
             JTE(ORA_IX), // 0x01
-            JTE(BAD), // 0x02 - illegal opcode
+            JTE(BAD),//JTE(JAM), // 0x02 - JAM (Halt)
             JTE(BAD), // 0x03 - illegal opcode
             JTE(BAD), // 0x04 - illegal opcode
             JTE(ORA_ZP), // 0x05

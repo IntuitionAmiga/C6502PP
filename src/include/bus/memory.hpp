@@ -50,7 +50,7 @@ public:
         size_t iResult = 0;
         std::FILE* pImage = std::fopen(sImage, "rb");
         if (pImage) {
-            iResult = std::fread(aBytes, 1, (MEM_SIZE - iLocation), pImage);
+            iResult = std::fread(&aBytes[iLocation], 1, (MEM_SIZE - iLocation), pImage);
             std::fclose(pImage);
         }
         return iResult;
