@@ -6,11 +6,11 @@ BENCH_SECONDS="${BENCH_SECONDS:-30}"
 
 # Benchmark metadata: bin_file instr_per_op
 benchmarks=(
-    "alu_bench.bin 2306"
-    "memory_bench.bin 1025"
-    "call_bench.bin 1281"
-    "branch_bench.bin 1537"
-    "mixed_bench.bin 2050"
+    "data/alu_bench.bin 2306"
+    "data/memory_bench.bin 1025"
+    "data/call_bench.bin 1281"
+    "data/branch_bench.bin 1537"
+    "data/mixed_bench.bin 2050"
 )
 
 # Prepare result storage
@@ -66,27 +66,27 @@ done
 
 # Print final table
 echo ""
-echo "================================================================================"
+echo "=============================================================================================="
 echo "                           6502 EMULATOR BENCHMARK RESULTS"
-echo "================================================================================"
+echo "=============================================================================================="
 printf "%-18s | %-12s | %-12s | %-12s | %-12s | %-12s\n" "Interpreter" "ALU" "Memory" "Call" "Branch" "Mixed"
 echo "-------------------|--------------|--------------|--------------|--------------|--------------"
 
 for name in "${interpreter_names[@]}"; do
-    alu=$(grep "^$name,alu_bench.bin," "$results_file" | cut -d',' -f3)
+    alu=$(grep "^$name,data/alu_bench.bin," "$results_file" | cut -d',' -f3)
     alu=${alu:-0.0}
-    mem=$(grep "^$name,memory_bench.bin," "$results_file" | cut -d',' -f3)
+    mem=$(grep "^$name,data/memory_bench.bin," "$results_file" | cut -d',' -f3)
     mem=${mem:-0.0}
-    cal=$(grep "^$name,call_bench.bin," "$results_file" | cut -d',' -f3)
+    cal=$(grep "^$name,data/call_bench.bin," "$results_file" | cut -d',' -f3)
     cal=${cal:-0.0}
-    bra=$(grep "^$name,branch_bench.bin," "$results_file" | cut -d',' -f3)
+    bra=$(grep "^$name,data/branch_bench.bin," "$results_file" | cut -d',' -f3)
     bra=${bra:-0.0}
-    mix=$(grep "^$name,mixed_bench.bin," "$results_file" | cut -d',' -f3)
+    mix=$(grep "^$name,data/mixed_bench.bin," "$results_file" | cut -d',' -f3)
     mix=${mix:-0.0}
     
     printf "%-18s | %12.2f | %12.2f | %12.2f | %12.2f | %12.2f\n" "$name" "$alu" "$mem" "$cal" "$bra" "$mix"
 done
-echo "================================================================================"
+echo "=============================================================================================="
 
 rm "$results_file"
 rm -f bench_Runtime bench_StaticSC bench_StaticSCPin bench_StaticMaxGoto bench_StaticMaxGotoLTO

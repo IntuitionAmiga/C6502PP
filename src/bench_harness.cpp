@@ -33,13 +33,9 @@ int main(int argc, char* argv[]) {
     
     // Benchmark Loop: Reset and run for the specified time
     while (std::chrono::high_resolution_clock::now() < tDeadline) {
-        // softReset() resets registers but preserves memory (benchmark code)
-        system.softReset();
-        system.oCPU.setProgramCounter(0x0600);
-        
+        system.runFrom(0x0600);
         // system.run() stops at JAM (0x02)
         system.run();
-        
         totalOps++;
     }
 
