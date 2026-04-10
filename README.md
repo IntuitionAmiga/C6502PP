@@ -17,7 +17,7 @@ A C++ implementation of [SixPhphive02](https://github.com/0xABADCAFE/sixphphive0
 
 - Compile Time Abstracted.
 - Uses _templates_ and _concepts_ in place of runtime polymorphism and interfaces.
-- Achieves **177x** the peak performance and **147x** of the Elephpant powered original on the same hardware, or **1500x** the peak performance of the real chip at 1 MHz.
+- Reaches hundreds of MIPS on modern hardware, depending on interpreter configuration and workload.
 
 ## Why?
 Mainly a nerdsnipe, but also an excuse to play with a hypergolic mix of C++20 concepts and low-level dirty GCC-isms. You might be able to use the code in an emulator, but it does not yet have cycle exactness or support the set of known illegal opcodes. On the flip side, the emulation code is entirely header based and therefore should be simple to integrate.
@@ -97,15 +97,22 @@ To ensure an "apples-to-apples" comparison with Go's `testing.B` harness, our C+
 1.  **State Isolation:** All registers (`A`, `X`, `Y`, `SR`, `SP`) are reset using `softReset()` between every complete iteration of the benchmark loop.
 2.  **Duration-Based:** Each benchmark runs for a fixed 30-second window to gather statistically significant throughput data.
 3.  **MIPS Calculation:** Throughput is calculated as: `1.0e3 * total_instructions / nanoseconds`.
+4.  **Production Wiring:** The harness uses the same `SystemType` selection as the main executable, so the `Runtime` benchmark exercises the same `RuntimeSystem<MOS6502, Bus::AbstractMemory>` path as `test_runtime`.
 
 ### Running the Suite
-You can run the full cross-interpreter benchmark suite (comparing all internal C++ configurations) using the provided script:
+You can run the full cross-interpreter benchmark suite, comparing the `Runtime` baseline plus the four compile-time configurations, using the provided script:
 
 ```bash
 cd src && ./run_benchmarks.sh
 ```
 
-This will compile the harness for each interpreter variant and produce a consolidated performance table.
+For shorter smoke checks, you can override the default duration:
+
+```bash
+cd src && BENCH_SECONDS=1 ./run_benchmarks.sh
+```
+
+The script compiles the harness for each interpreter variant and prints a consolidated five-row performance table.
 
 ## Results
 
@@ -113,14 +120,17 @@ From silicon to SixPhphive02 through to the four iterations of the C++ port, and
 
 ### Comparative Results (MIPS)
 
-The following performance table compares the C++ interpreter configurations (30-second benchmark runs):
+The following table is one sample local run of the current benchmark matrix. Exact numbers are machine- and duration-dependent, so treat it as an example rather than a canonical ranking.
 
 | Interpreter | ALU | Memory | Call | Branch | Mixed |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **StaticSC** | 470.15 | 522.70 | 542.20 | 526.37 | 513.39 |
-| **StaticSCPin** | 441.03 | 524.46 | 554.12 | 519.18 | 530.13 |
-| **StaticMaxGoto** | 485.92 | 547.57 | 563.17 | 540.01 | 582.84 |
-| **StaticMaxGotoLTO** | 474.39 | 538.06 | 595.17 | 563.53 | 566.76 |
+| **Runtime** | 254.49 | 206.67 | 193.76 | 278.55 | 226.84 |
+| **StaticSC** | 356.87 | 408.77 | 391.41 | 404.81 | 373.64 |
+| **StaticSCPin** | 278.85 | 359.02 | 343.50 | 387.58 | 355.84 |
+| **StaticMaxGoto** | 318.74 | 394.80 | 401.67 | 400.39 | 389.61 |
+| **StaticMaxGotoLTO** | 314.16 | 395.62 | 391.00 | 418.27 | 353.68 |
+
+Numbers above were taken from a `BENCH_SECONDS=1` smoke run to keep the example quick to reproduce. Use the default 30-second duration for more stable comparisons.
 
 ![Linear performance](./img/perf.png)
 

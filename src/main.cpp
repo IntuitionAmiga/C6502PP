@@ -1,7 +1,7 @@
 #include <chrono>
 #include <cstdio>
 #include <new>
-#include "system.hpp"
+#include "system_type.hpp"
 
 using namespace C6502PP;
 
@@ -33,15 +33,6 @@ void PerOpcodeCountObserver::reset() noexcept
         aCounts[i] = 0;
     }
 }
-
-// Decide which system we are going to use.
-#ifdef STATIC_SYSTEM
-    // Fast, 64KB+ on stack/heap, no virtual calls
-    using SystemType = CompileTimeSystem<MOS6502, Bus::SimpleMemory>;
-#else
-    // Flexible, 40 bytes, virtual bus calls
-    using SystemType = RuntimeSystem<MOS6502, Bus::AbstractMemory>;
-#endif
 
 int main() {
 

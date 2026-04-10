@@ -2,17 +2,7 @@
 
 # Configuration
 CC="g++"
-BASE_CFLAGS="-Wall -Wextra -march=native -falign-labels=16 -Ofast --std=c++20 -I./include -fno-lto"
-BENCH_SECONDS=30
-
-# List of interpreters (matching Makefile targets)
-declare -A configs=(
-    ["Runtime"]=" -DINTERPRET_SWITCH -DBUS_UNPINNED"
-    ["StaticSC"]=" -DSTATIC_SYSTEM -DINTERPRET_SWITCH -DBUS_UNPINNED"
-    ["StaticSCPin"]=" -DSTATIC_SYSTEM -DINTERPRET_SWITCH"
-    ["StaticMaxGoto"]=" -DSTATIC_SYSTEM"
-    ["StaticMaxGotoLTO"]=" -DSTATIC_SYSTEM -flto"
-)
+BENCH_SECONDS="${BENCH_SECONDS:-30}"
 
 # Benchmark metadata: bin_file instr_per_op
 benchmarks=(
@@ -26,30 +16,29 @@ benchmarks=(
 # Prepare result storage
 results_file=$(mktemp)
 
-# List of interpreters (matching Makefile targets)
-declare -A configs=(
-    ["Runtime"]=" -DBUS_UNPINNED"
-    ["StaticSC"]=" -DSTATIC_SYSTEM -DINTERPRET_SWITCH -DBUS_UNPINNED"
-    ["StaticSCPin"]=" -DSTATIC_SYSTEM -DINTERPRET_SWITCH"
-    ["StaticMaxGoto"]=" -DSTATIC_SYSTEM"
-    ["StaticMaxGotoLTO"]=" -DSTATIC_SYSTEM -flto"
-)
+mapfile -t benchmark_configs < <(make -s print_benchmark_configs)
+
+interpreter_names=()
+declare -A config_flags=()
+declare -A config_ldflags=()
+
+for config in "${benchmark_configs[@]}"; do
+    IFS='|' read -r name flags ldflags <<< "$config"
+    interpreter_names+=("$name")
+    config_flags["$name"]="$flags"
+    config_ldflags["$name"]="$ldflags"
+done
 
 # Run Benchmarks
-for name in "StaticSC" "StaticSCPin" "StaticMaxGoto" "StaticMaxGotoLTO"; do
-    flags=${configs[$name]}
+for name in "${interpreter_names[@]}"; do
+    flags=${config_flags[$name]}
+    ldflags=${config_ldflags[$name]}
     echo "=========================================================="
     echo " Compiling and Running Interpreter: $name"
     echo " Flags: $flags"
     echo "=========================================================="
 
-    # Compile the harness for this specific configuration
-    LDFLAGS=""
-    if [[ $flags == *"flto"* ]]; then
-        LDFLAGS="-flto"
-    fi
-
-    $CC $BASE_CFLAGS $flags bench_harness.cpp memory.cpp -o "bench_$name" $LDFLAGS
+    make -s build_bench BIN_NAME="bench_$name" FLAGS="$flags" LDFLAGS="$ldflags"
 
     if [ $? -ne 0 ]; then
         echo "Compilation of $name failed."
@@ -83,7 +72,7 @@ echo "==========================================================================
 printf "%-18s | %-12s | %-12s | %-12s | %-12s | %-12s\n" "Interpreter" "ALU" "Memory" "Call" "Branch" "Mixed"
 echo "-------------------|--------------|--------------|--------------|--------------|--------------"
 
-for name in "StaticSC" "StaticSCPin" "StaticMaxGoto" "StaticMaxGotoLTO"; do
+for name in "${interpreter_names[@]}"; do
     alu=$(grep "^$name,alu_bench.bin," "$results_file" | cut -d',' -f3)
     alu=${alu:-0.0}
     mem=$(grep "^$name,memory_bench.bin," "$results_file" | cut -d',' -f3)

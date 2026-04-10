@@ -2,7 +2,7 @@
 #include <vector>
 #include <fstream>
 #include <chrono>
-#include "system.hpp"
+#include "system_type.hpp"
 
 using namespace C6502PP;
 
@@ -19,11 +19,6 @@ int main(int argc, char* argv[]) {
     size_t instrPerOp = std::stoull(argv[2]);
     int seconds = std::stoi(argv[3]);
 
-#ifdef STATIC_SYSTEM
-    using SystemType = CompileTimeSystem<MOS6502, Bus::SimpleMemory>;
-#else
-    using SystemType = RuntimeSystem<MOS6502, Bus::SimpleMemory>;
-#endif
     static SystemType system;
 
     // Load binary at 0x0600 (default for Go benchmarks)
