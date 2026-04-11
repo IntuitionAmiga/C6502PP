@@ -23,13 +23,13 @@ A C++ implementation of [SixPhphive02](https://github.com/0xABADCAFE/sixphphive0
 Mainly a nerdsnipe, but also an excuse to play with a hypergolic mix of C++20 concepts and low-level dirty GCC-isms. You might be able to use the code in an emulator, but it does not yet have cycle exactness or support the set of known illegal opcodes. On the flip side, the emulation code is entirely header based and therefore should be simple to integrate.
 
 ## Building
-You'll need a recentish GCC version, I have only tested with 11.4. I only write the most basic makefiles, so I asked Gemini to write this one.
+You'll need a recentish GCC version, I have only tested with 11.4. I only write the most basic Makefiles, so I asked Gemini to write this one.
 
 ```bash
-:~/$ git clone https://github.com/0xABADCAFE/C6502PP.git
+    :~/$ git clone https://github.com/0xABADCAFE/C6502PP.git
 
-:~/$ cd C6502PP/src
-:~/C6502PP/src$ make bench
+    :~/$ cd C6502PP/src
+    :~/C6502PP/src$ make bench
 ```
 
 This should produce the following binaries with and without link-time optimisations (LTO):
@@ -41,6 +41,7 @@ This should produce the following binaries with and without link-time optimisati
    
 - `test_sc`, `test_sc_lto`
     - Initial conversion to compile-time abstraction.
+    - Code is now entirely template based.
    
 - `test_sc_pin`, `test_sc_pin_lto`
     - Adds local variable pinning of the program counter and memory dependency reference.
@@ -56,46 +57,57 @@ Each binary performs two tests:
 Each test takes a few seconds to run and outputs the same data. For example:
 
 ```bash
-:~/C6502PP/src$ time ./test_max
-sizeof(CompileTimeSystem) = 65664 bytes
-PC: 0x0000 => 0x00
-SP: 0x01FF => 0x00
-A: 0x00 [   0]
-X: 0x00 [   0]
-Y: 0x00 [   0]
-F: [- - | - - - Z -]
-Ran 3276800000 0xEA insructions in 1891107632 nanoseconds [1732.741 MIPS]
-Loaded data/rom/diagnostic/6502_functional_test.bin
-Beginning execution from 0x0400
-Klaus Test Passed! Ran 306480490 insructions in 493651005 nanoseconds [620.844 MIPS]
-PC: 0x3469 => 0x4C
-SP: 0x01FF => 0x34
-A: 0xF0 [ -16]
-X: 0x0E [  14]
-Y: 0xFF [  -1]
-F: [N V | - - - - C]
+    :~/C6502PP/src$ time ./test_max
+    sizeof(CompileTimeSystem) = 65664 bytes
+    PC: 0x0000 => 0x00
+    SP: 0x01FF => 0x00
+    A: 0x00 [   0]
+    X: 0x00 [   0]
+    Y: 0x00 [   0]
+    F: [- - | - - - Z -]
+    Ran 3276800000 0xEA insructions in 1891107632 nanoseconds [1732.741 MIPS]
+    Loaded data/rom/diagnostic/6502_functional_test.bin
+    Beginning execution from 0x0400
+    Klaus Test Passed! Ran 306480490 insructions in 493651005 nanoseconds [620.844 MIPS]
+    PC: 0x3469 => 0x4C
+    SP: 0x01FF => 0x34
+    A: 0xF0 [ -16]
+    X: 0x0E [  14]
+    Y: 0xFF [  -1]
+    F: [N V | - - - - C]
 
-real	0m2.437s
-user	0m2.436s
-sys	0m0.000s
+    real	0m2.437s
+    user	0m2.436s
+    sys	0m0.000s
 ```
 
 The initial and final state of the CPU emulator is shown, along with the nanosecond timing and implied performance. For the most reliable results you should run in the absence of other processes, with a fixed CPU speed (e.g. performance mode) and chain three successive executions together, eg.
 
 ```bash
-:~/C6502PP/src$ ./test_max && ./test_max && ./test_max
+    :~/C6502PP/src$ ./test_max && ./test_max && ./test_max
 ```
 Generally the first cold run will have the least reliable timing, whereas the subsequent runs are closer together as other variances are reduced.
 
-## Simple Results
-From silicon to SixPhphive02 through to the four iterations of the C++ port, and finally including benchmarks ported from [IntuitionEngine](https://github.com/IntuitionAmiga/IntuitionEngine).
+## Basic Results
+From silicon to SixPhphive02 through to the four iterations of the C++ port, the data are given below. All emulation tests were performed on a 2018 i7-7500U running in performance mode at 3.5GHz.
 
 ### Peak Throughput and Klaus Dormann
 
+| System | Klaus | NOP |
+| :--- | :--- | :--- |
+| PHP Abstract Switch | 3.07 | 4.3 | 
+| C++ Abstract Switch | 178 | 433 |
+| C++ Abstract Switch + LTO | 350 |641 |
+| C++ Static Switch | 293 | 523 |
+| C++ Static Switch + LTO | 297 | 523 |
+| C++ Static Switch + Pin | 371 | 869 |
+| C++ Static Switch + Pin + LTO | 372 | 867 |
+| C++ Static Jump + Pin | 621 | 1734 |
+| C++ Static Jump + Pin + LTO | 608 | 1730 |
+
+Charting those:
 ![Linear performance](./img/perf_linear.png)
-
 The only way to really appreciate gains that large is with a _logarithmic_ scale.
-
 ![Log10 performance](./img/perf_log10.png)
 
 ## IntutionEngine 6502 Benchmark Port
@@ -121,13 +133,13 @@ To ensure an "apples-to-apples" comparison with Go's `testing.B` harness, our C+
 You can run the full cross-interpreter benchmark suite, comparing the `Runtime` baseline plus the four compile-time configurations, using the provided script:
 
 ```bash
-cd src && ./run_benchmarks.sh
+    cd src && ./run_benchmarks.sh
 ```
 
 For shorter smoke checks, you can override the default duration:
 
 ```bash
-cd src && BENCH_SECONDS=1 ./run_benchmarks.sh
+    cd src && BENCH_SECONDS=1 ./run_benchmarks.sh
 ```
 
 The script compiles the harness for each interpreter variant and prints a consolidated five-row performance table.
@@ -179,7 +191,7 @@ The handler for unconditional branch was designed to exit if a branch jumps back
 
 To test the performance, two benchmarks were ran:
 
-- NOP was repeatedly executed in blocks of 32768 to get a baseline for what should be the fastest throughtput.
+- NOP was repeatedly executed in blocks of 32768 to get a baseline for what should be the fastest throughtput and the critical path.
 - The Klaus Dormann diagnostic was ran to completion (30648049 instructions up to and including the unconditional branch at 0x3469) and timed.
 
 Knowing the total instruction counts for each, on a 2018 i7-7500U @ 3.5GHz running PHP 8.1 (at the time) without JIT enabled:
@@ -210,14 +222,14 @@ The same basic benchmarks were ran on the same hardware under the same condition
 - NOP peaked at **433 MIPS**
 - Klaus Dormann diagnostic achieved **178 MIPS**
 
-This was already a massive **100x** speedup over SixPhphive02 for the simplest operation and a **60x** speed up more generally.
+This was already a massive **100x** speedup over SixPhphive02 for the simplest operation and a **58x** speed up more generally.
 
-Turning on _Link Time Optimisation_ made an equally impressive difference.
+Turning on _Link Time Optimisation_ made an equally impressive difference. 
 
-- NOP peaked at **641 MIPS**
-- Klaus Dormann diagnostic achieved **350 MIPS**
+- NOP peaked at **641 MIPS** giving a 48% improvement with LTO.
+- Klaus Dormann diagnostic achieved **350 MIPS** giving a 96% improvement with LTO.
 
-When enabled, Link Time Optimisation defers the final round of optimisation to the linking stage, essentially allowing code that is properly isolated and encapsulated to be revealed, allowimg the compiler to identify the real concrete code hiding behind the abstraction and peel away some of the indirection. 
+When enabled, Link Time Optimisation defers the final round of optimisation to the linking stage, essentially allowing code that is properly isolated and encapsulated to be revealed. This allows the compiler to identify the real concrete code hiding behind the abstraction and peel away some of the indirection. In this case, the compiler can see that our virtual pointer is only ever assigned to one specific concrete implementation of the abstraction and is able to completely devirtualise the call. As such, this example serves as something of a best case example of what the technique can do.
 
 ### Attempt 2 : Static Shock
 
@@ -229,13 +241,12 @@ I should've called it, but what I really wanted to do was to try _compile time_ 
 
 The same benchmarks were repeated:
 
-- NOP peaked at **523 MIPS**
-- Klaus Dormann diagnostic achieved **294 MIPS**
+- NOP peaked at **523 MIPS** giving a 21% improvement over the previous non-LTO version.
+- Klaus Dormann diagnostic achieved **294 MIPS** giving a 65% improvement over the previous non-LTO version.
 
-This was definitely a result supporting the compile-time over runtime abstraction argument, giving a decent 20% improvement in the fastest NOP path and a whopping 60% improvement in general.
+This was definitely a result supporting the compile-time over runtime abstraction argument. However it is worth noting that these results are slower than the previous iteration with LTO enabled.
 
-Turning on _Link Time Optimisation_ made very little difference, primarily becasue the indirection it is able to unravel does not exist in the statically abstracted code.
-
+Turning on LTO made very little difference here, primarily becasue the indirection it is able to unravel does not exist in the statically abstracted code.
 
 ### Attempt 3 : Put A Pin In It
 
@@ -246,17 +257,22 @@ I wanted to validate my assumptions about what was going on in the code and insp
 
 That surprised me because being such a hot reference you'd expect it to get put into a register. So I thought I might try and _pin_ it. To do that, I created a local reference with the same name as the member and marked it as `__restrict__` which is a promise to the compiler that it won't change over the lifetime of the scope it's defined in. This should make it easier for the compiler to keep it in a register and avoid having to constantly reload it.
 
-Equally hot was the emulated program counter. This is loaded from, modified and written back to the CPU data structure in every handler. Some light refactoring and this was also moved to a local value for the duration of the interpreter loop.
+Equally hot was the emulated program counter. This was loaded from, modified and written back to the CPU data structure in every handler. Some light refactoring and this was also moved to a local value for the duration of the interpreter loop. The code was refactored so that helper methods became static and accepted the program counter and memory reference as const parameters. This should allow the compiler to keep these values in registers when inlining those calls.
+
+Shadowing the member values into local values within the main interpreter was quite easy thanks to C++'s scoping rules. If a local variable `value` has the same name as a member variable in the current method, the local declaration is used _unless_ the member variable is explicitly requested using `this->value`. 
 
 The same benchmarks were repeated:
 
-- NOP peaked at **869 MIPS**
-- Klaus Dormann diagnostic achieved **371 MIPS**
+- NOP peaked at **869 MIPS**  giving a 66% improvement over the previous iteration.
+- Klaus Dormann diagnostic achieved **371 MIPS** giving a 27% improvement over the previous iteration
 
+As with the previous iteration, enabling LTO did not have any meaningful effect without any abstractions to devirtualise.
 
 ### Attempt 4 : To Boldy Goto
 
-Looking at the assembly language reminded me that _switch/case_ constructs are sometimes just not as fast as people like to think. Since I was compiling for 64-bit, the compiler was generating a jump table with 32-bit displacements from the program counter. 256 entries, 4 bytes each (1KiB) and all funneling though a central dispatch location. So I decided to change that to use _computed goto_.
+Looking at the assembly language reminded me that _switch/case_ constructs are sometimes just not as fast as people like to think. Often a switch/case becomes a jump table of branch offsets, one per possible switch value, that is indexed by the value being switched. Each offset points to the code for a declared case, or to the default case. The code to perform the switch lookup and branch to the case handler is located in one place and the interpreter loop comes back to it every iteration.
+
+Since I was compiling for 64-bit, the compiler was generating a jump table with 32-bit values. At 256 entries of 4 bytes each this uses 1KiB and funneling it all through a single dispatch location adds extra branching. So I decided to change that to use _computed goto_.
 
 - This is a GCC extension that allows the address of a label to be taken and used as an indirect _goto_ destination:
 
@@ -268,6 +284,8 @@ Looking at the assembly language reminded me that _switch/case_ constructs are s
         - If the distances are certain to be small enough, you can use a narrower type.
 
 - As the overall size of the executable was already around 32 KiB this got me thinking that I could construct an array of 16-bit offsets and this table would be half the size of the typical switch/case table.
+    - A check on the table values revealed a maximum displacement of ~15K.
+    
 - Finally, the computed goto could be added at the end of each instruction handler to automatically determine where to go next, without branching backwards and forwards from the single dispatch location:
     - This approach is commonly known as _threaded dispatch_
     - Note, that's not _threaded_ as in concurrent, but as in to run a thread through something.
@@ -363,17 +381,132 @@ For the computed goto model, something rather different:
 
 All that said, only the numbers matter. The same benchmarks were repeated:
 
-- NOP peaked at **1734 MIPS**
-- Klaus Dormann achived **621 MIPS**
+- NOP peaked at **1734 MIPS** giving a whopping 2x faster than the previous iteration.
+- Klaus Dormann achived **621 MIPS** giving a 67% increase over the previous iteration.
 
-This was more like it. A 34% gain in the NOP path and a 56% gain for the general case.
+Turning on LTO for this build actually had a detrimental effect, costing a few percent on each metric. My assumption is that attempting to optimise the code globally makes the set of registers available within the interpreter loop smaller, increasing pressure there.
 
-Putting it into perspective, **176.8x** faster than the original PHP SixPhphive02 in the simplest case and **147.3x** faster in the general case.
-
-**Eternal Noptimist: Anatomy of the final NOP handler:**
+**Eternal Noptimist: Evolution of a NOP handler:**
 
 Given all this, what does our minimal opcode fetch/execute/disatch code _actually_ look like through this journey?
 
+**Version 1**
+
+```asm
+
+.L19: ; Handler for NOP
+    incw    32+_ZZ4mainE6system(%rip) ; incrementing the member program counter is all NOP does
+    jmp     .L5 ; jump to the dispatch logic
+
+    ; many lines of code later...
+
+.L5: ; common dispatch logic here
+    movq    16+_ZZ4mainE6system(%rip), %rdi ; load up the pointer to the memory imlementation
+    movzwl  32+_ZZ4mainE6system(%rip), %esi ; load up the member program counter for the readByte() call parameer
+    movq    (%rdi), %rax         ; get the memory virtual function table
+    call    *32(%rax)            ; virtual function call to the memory.readByte()
+    cmpb    $-2, %al             ; checks beyond max defined case
+    ja      .L510                ; early out to default case
+    movzbl  %al, %eax            ; extend the byte
+    movslq  (%rbx,%rax,4), %rax  ; look up the displ
+    addq    %rbx, %rax           ; add displacement 
+    jmp    *%rax                 ; jump to handler
+	
+	; switch/ case jump table
+	.section	.rodata          ; located in read only section, potentially far from here.
+	.align 4
+	.align 4
+	
+.L8: ; switch case table
+	.long   .L158-.L8 ; specific case
+	.long   .L157-.L8 ; specific case
+	.long   .L510-.L8 ; default case
+	.long   .L510-.L8 ; default case
+	; all the other cases
+```
+
+That's quite a lot of work, but the compiler has made an optimisation to the jump table by early identifying some unreachable targets and going directly to the default case.
+
+**Version 2**
+
+Elimination of indirection.
+
+```asm
+.L33: ; Handler for NOP
+	incw    16+_ZZ4mainE6system(%rip) ; Incrementing the member program counter. This has moved as the structure is slightly different now.
+	jmp     .L19 ; jump to the dispatch logic
+
+    ; many lines of code later...
+
+.L19: ; next instruction fetch has been moved
+    movq    (%rcx), %rdx                    ; 
+    movzwl  16+_ZZ4mainE6system(%rip), %eax ; 
+    cmpb    $-2, (%rdx,%rax)                ; range check on byte in memory
+    jbe     .L525 ; only continue with instruction decode if case is in range
+	popq    %rbx  ; we had a bad opcode so restore call stack and ...
+	ret           ; ... exit interpreter
+	
+	; many lines later ...
+.L525:
+	movzbl  (%rdx,%rax), %eax    ; load the instruction byte, hot now due to check.
+	movslq  (%rsi,%rax,4), %rax  ; get the corresponsing jump table record
+	addq    %rsi, %rax           ; compute jump ...
+	jmp     *%rax                ; ... and go
+	
+    ; Same arrangement for the switch/case table
+	.section	.rodata
+	.align 4
+	.align 4
+.L22:
+	.long	.L172-.L22
+	.long	.L171-.L22
+	.long	.L521-.L22
+	; ...
+```
+
+What is most evident here is the expected lack of virtual function calls. Access to the memory of the static abstraction is now direct array access.
+
+**Version 3**
+
+Value pinning.
+
+```asm
+.L33: ; Handler for NOP
+    incl    %eax ; Note that the program counter is now living in %eax.
+    jmp     .L19
+
+    ; many lines later
+.L19:
+    movzwl  %ax, %ecx        ; note the lack of access to the structure members.
+	cmpb    $-2, (%rdx,%rcx) ; same range check
+	jbe    .L529
+	
+.L525:
+	popq	%rbx ; bad opcode, so restore stack and exit.
+	popq	%rbp ; note that we had to restore more registers due to increased local allocation.
+	ret
+
+.L529: ; Common dispatch, completely register bound.
+    movzbl  (%rdx,%rcx), %ecx
+    movslq  (%rsi,%rcx,4), %rcx
+    addq    %rsi, %rcx
+	jmp     *%rcx
+	 
+    ; Same jump table
+    .section    .rodata
+    .align 4
+    .align 4
+.L22:
+    .long   .L172-.L22
+    .long   .L171-.L22
+	; ... remaining cases
+```
+
+After this, it's obvious that the NOP itself is as small as it can be and the dispatching logic is the limit.
+
+**Version 4**
+
+Computed goto and threaded dispatch.
 
 ```asm
         // Handler for the NOP instruction
@@ -388,7 +521,11 @@ Given all this, what does our minimal opcode fetch/execute/disatch code _actuall
 
 6 instructions, of which the last five are just the dispatch. Without pinning the program counter, the first instruction becomes a load/modify/store cycle that introduces stalls when called too quickly. This explains why pinning had such a dramatic impact.
 
-We can actually rig the NOP test by checking if the next opcode is NOP and keep incrementing until it isn't:
+The jump table format is slightly different due to C++ type punning but it evaluates to the expected array of 16-bit values, located in the code startup section, rather than in constant data.
+
+**Rigging it**
+
+We can actually cheat with the NOP test by checking if the next opcode is NOP and keep incrementing until it isn't:
 
 ```
     handle(NOP) {
@@ -523,7 +660,7 @@ For clarity, some tweaks are not shown here.
 
 ## Further Work
 
-To improve the throughput further, pinning the program counter seems like an obvious idea but it's also going to reduce the set of registers available to the optimiser for other purposes.
+To improve the throughput further, pinning further hot member variables is an obvious idea but it's also going to reduce the set of registers available to the optimiser for other purposes.
 
 I also attempted a lazy-flags approach. For almost every instruction, the status register has to be updated which involves a fair amount of bitwise manipulation. Instead, I tried copying the result of the last operation to a local temporary that can be used to evaluate the N and V flags at the point where they first become necessary, i.e. on a conditional branch. This ultimately proved detrimental to performance but it might be the case that it can be revisited.
 
