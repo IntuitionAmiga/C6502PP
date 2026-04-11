@@ -37,15 +37,15 @@ This should produce the following binaries with and without link-time optimisati
 - `test_runtime`, `test_runtime_lto`
     - The most direct C++ port from the original PHP.
     - Uses traditional runtime polymorphic approach to abstraction.
-    - Switch/case based insruction dispatch.
-   
+    - Switch/case based instruction dispatch.
+
 - `test_sc`, `test_sc_lto`
     - Initial conversion to compile-time abstraction.
     - Code is now entirely template based.
-   
+
 - `test_sc_pin`, `test_sc_pin_lto`
     - Adds local variable pinning of the program counter and memory dependency reference.
- 
+
 - `test_max`, `test_max_lto`
     - Conversion of switch/case to computed goto based threaded dispatch.
 
@@ -91,31 +91,49 @@ Generally the first cold run will have the least reliable timing, whereas the su
 ## Basic Results
 From silicon to SixPhphive02 through to the four iterations of the C++ port, the data are given below. All emulation tests were performed on a 2018 i7-7500U running in performance mode at 3.5GHz.
 
-### Peak Throughput and Klaus Dormann
+**Peak NOP Throughput and Klaus Dormann**
 
-| System | Klaus | NOP |
-| :--- | :--- | :--- |
-| PHP Abstract Switch | 3.07 | 4.3 | 
+| **System** | **Klaus Dormann** | **NOP** |
+| ---: | ---: | ---: |
+| PHP Abstract Switch | 3.07 | 4.3 |
 | C++ Abstract Switch | 178 | 433 |
 | C++ Abstract Switch + LTO | 350 |641 |
 | C++ Static Switch | 293 | 523 |
 | C++ Static Switch + LTO | 297 | 523 |
 | C++ Static Switch + Pin | 371 | 869 |
 | C++ Static Switch + Pin + LTO | 372 | 867 |
-| C++ Static Jump + Pin | 621 | 1734 |
+| **C++ Static Jump + Pin** | **621** | **1734** |
 | C++ Static Jump + Pin + LTO | 608 | 1730 |
 
-Charting those:
+
+**Raising the bar (chart)**
+
 ![Linear performance](./img/perf_linear.png)
-The only way to really appreciate gains that large is with a _logarithmic_ scale.
+
+The silicon and SixPhphive02 performance are completely insbisible at that scale, so charting again with a logarithmic scale:
+
 ![Log10 performance](./img/perf_log10.png)
 
-## IntutionEngine 6502 Benchmark Port
+## Reality Cheque, Please!
 
-This project includes a suite of 6502 benchmarks ported from [Zayn Otley's Intuition Engine](https://github.com/IntuitionAmiga/IntuitionEngine). These benchmarks provide a standardized workload to compare the performance of this C++ emulator against the original Go-based interpreter and JIT implementations.
+- Hitting **1734** MIPS at **3.5 GHz** is a throughput of one emulated NOP per two host clock cycles in a single-threaded workload.
+- Since the complete size of the final NOP handler is six x64 instructions, this means three instructions retired per clock (assuming an even split).
+- This is a testament to modern out-of-order, superscalar execution:
+    - The i7-7500U (Kaby Lake) has a peak of four instructions per clock in a single thread.
+    - Due to sequential data dependencies between successive instructions, hitting 3 out of 4 in parallel is the limit since the branch unit needs the result of the calcuation and can only retire one branch per cycle. There's no reordering that.
+    - So, this is it, the _lightspeed_ solution... At least without cheating ;)
+
+- A final thought: since the 6502 could execute a NOP every 2 cycles, we could say that (at least for NOP) we're hitting a 3.5GHz 6502 equivalent.
+
+
+## IntuitionEngine 6502 Benchmark Port
+
+This project includes an additional suite of 6502 benchmarks ported from [Zayn Otley's Intuition Engine](https://github.com/IntuitionAmiga/IntuitionEngine). These benchmarks provide a standardized workload to compare the performance of this C++ emulator against the original Go-based interpreter and JIT implementations.
 
 ### Ported Workloads
+
 The following benchmark categories were extracted from the Intuition Engine's Go test suite:
+
 *   **ALU:** Register-heavy arithmetic operations (ADC, AND, EOR, etc.) in a tight counted loop.
 *   **Memory:** Zero-page load/store throughput testing memory bus efficiency.
 *   **Call:** JSR/RTS subroutine overhead, measuring block-exit and stack performance.
@@ -146,17 +164,28 @@ The script compiles the harness for each interpreter variant and prints a consol
 
 ### Intuition Comparative Results (MIPS)
 
-The following table is one sample local run of the current benchmark matrix. Exact numbers are machine- and duration-dependent, so treat it as an example rather than a canonical ranking.
+The following table is one sample local run of the current benchmark matrix on the same i7-7500 machine under the same test conditions. As always, exact numbers are machine and duration-dependent, so treat it as an example rather than a canonical ranking.
 
-| Interpreter | ALU | Memory | Call | Branch | Mixed |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Runtime** | 254.49 | 206.67 | 193.76 | 278.55 | 226.84 |
-| **StaticSC** | 356.87 | 408.77 | 391.41 | 404.81 | 373.64 |
-| **StaticSCPin** | 278.85 | 359.02 | 343.50 | 387.58 | 355.84 |
-| **StaticMaxGoto** | 318.74 | 394.80 | 401.67 | 400.39 | 389.61 |
-| **StaticMaxGotoLTO** | 314.16 | 395.62 | 391.00 | 418.27 | 353.68 |
+**Throughput per build**
+
+| **Build** | **ALU** | **Memory** | **Call** | **Branch** | **Mixed** |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| C++ Abstract Switch | 310.54 | 249.52 | 237.94 | 314.33 | 234.94 |
+| C++ Abstract Switch + LTO | 357.05 | 381.72 | 365.09 | 420.35 | 302.20 |
+| C++ Static Switch | 393.81 | 426.28 | 442.40 | 410.16 | 311.57 |
+| C++ Static Switch + LTO | 355.97 | 419.08 | 455.75 | 391.08 | 338.06 |
+| C++ Static Switch + Pin | 237.73 | 309.90 | 282.97 | 287.15 | 217.52 |
+| C++ Static Switch + Pin + LTO | 240.36 | 315.43 | 304.63 | 283.31 | 214.76 |
+| C++ Static Jump + Pin | 489.72 | 691.20 | 649.29 | 721.51 | 485.99 |
+| C++ Static Jump + Pin + LTO | 489.44 | 691.94 | 649.44 | 730.30 | 473.01 |
 
 Numbers above were taken from a `BENCH_SECONDS=1` smoke run to keep the example quick to reproduce. Use the default 30-second duration for more stable comparisons.
+
+The source for these tests can be found in the [data](./data/) directory.
+
+Charting those:
+
+![Linear performance](./img/perf_intuition_linear.png)
 
 ## A Journey
 
@@ -224,7 +253,7 @@ The same basic benchmarks were ran on the same hardware under the same condition
 
 This was already a massive **100x** speedup over SixPhphive02 for the simplest operation and a **58x** speed up more generally.
 
-Turning on _Link Time Optimisation_ made an equally impressive difference. 
+Turning on _Link Time Optimisation_ made an equally impressive difference.
 
 - NOP peaked at **641 MIPS** giving a 48% improvement with LTO.
 - Klaus Dormann diagnostic achieved **350 MIPS** giving a 96% improvement with LTO.
@@ -255,11 +284,17 @@ I wanted to validate my assumptions about what was going on in the code and insp
 - The original version relied on `call` for the virtual functions and it was clear this was all stripped away for direct array access in the new version.
 - However, I did notice that the reference for the Memory implementation instance was being reloaded in every handler.
 
-That surprised me because being such a hot reference you'd expect it to get put into a register. So I thought I might try and _pin_ it. To do that, I created a local reference with the same name as the member and marked it as `__restrict__` which is a promise to the compiler that it won't change over the lifetime of the scope it's defined in. This should make it easier for the compiler to keep it in a register and avoid having to constantly reload it.
+That surprised me because being such a hot reference you'd expect it to get put into a register. Equally hot was the emulated program counter. This was loaded from, modified and written back to the CPU data structure in every handler.
 
-Equally hot was the emulated program counter. This was loaded from, modified and written back to the CPU data structure in every handler. Some light refactoring and this was also moved to a local value for the duration of the interpreter loop. The code was refactored so that helper methods became static and accepted the program counter and memory reference as const parameters. This should allow the compiler to keep these values in registers when inlining those calls.
+The real reason the compiler doesn't decide to cache these values somewhere faster is that it cannot gurantee they won't be changed by something else during the lifetime of the execution: any method call or concurrent activity could change the values leading to improper execution.
 
-Shadowing the member values into local values within the main interpreter was quite easy thanks to C++'s scoping rules. If a local variable `value` has the same name as a member variable in the current method, the local declaration is used _unless_ the member variable is explicitly requested using `this->value`. 
+So I thought I might try and _pin_ it. _Pinning_ is a technique where you take some member value and put it into a local temporary that you use for the duration and finally write back to the member at the end.
+
+Fortunately, shadowing the member values into local values within the main interpreter was quite easy thanks to C++'s scoping rules. If a local variable `my_value` has the same name as a member variable in the current method, the local declaration is used _unless_ the member variable is explicitly requested using `this->my_value`.
+
+The only complication is that there were several helper methods that are called, which still use the the member variables. That is incompatible with the approach. Some light refactoring so that those helper methods became static and accepted the pinned variables as `const` parameters. This should allow the compiler to keep these values in registers when inlining those calls.
+
+The compiler was still reluctant to trust the shadowed reference to the memory. The reason for this is that it needs a stronger guarantee that the pointer cannot change over the lifetime. Fortunately, there is a qualifier for exactly this purpose. Adding `__restrict__` to the declaration is a platinum promise to the compiler that you know what you are doing.
 
 The same benchmarks were repeated:
 
@@ -285,7 +320,7 @@ Since I was compiling for 64-bit, the compiler was generating a jump table with 
 
 - As the overall size of the executable was already around 32 KiB this got me thinking that I could construct an array of 16-bit offsets and this table would be half the size of the typical switch/case table.
     - A check on the table values revealed a maximum displacement of ~15K.
-    
+
 - Finally, the computed goto could be added at the end of each instruction handler to automatically determine where to go next, without branching backwards and forwards from the single dispatch location:
     - This approach is commonly known as _threaded dispatch_
     - Note, that's not _threaded_ as in concurrent, but as in to run a thread through something.
@@ -395,34 +430,47 @@ Given all this, what does our minimal opcode fetch/execute/disatch code _actuall
 ```asm
 
 .L19: ; Handler for NOP
-    incw    32+_ZZ4mainE6system(%rip) ; incrementing the member program counter is all NOP does
-    jmp     .L5 ; jump to the dispatch logic
 
-    ; many lines of code later...
+    ; Notes
+    ;
+    ; Due to using a static instance of the CPU class, the compiler is using position independent code references to
+    ; the CPU data via displacement(%rip) addressing.
+    ; The address of generated jump table is already held in %rbx here.
 
-.L5: ; common dispatch logic here
-    movq    16+_ZZ4mainE6system(%rip), %rdi ; load up the pointer to the memory imlementation
-    movzwl  32+_ZZ4mainE6system(%rip), %esi ; load up the member program counter for the readByte() call parameer
-    movq    (%rdi), %rax         ; get the memory virtual function table
-    call    *32(%rax)            ; virtual function call to the memory.readByte()
-    cmpb    $-2, %al             ; checks beyond max defined case
-    ja      .L510                ; early out to default case
-    movzbl  %al, %eax            ; extend the byte
-    movslq  (%rbx,%rax,4), %rax  ; look up the displ
-    addq    %rbx, %rax           ; add displacement 
-    jmp    *%rax                 ; jump to handler
-	
-	; switch/ case jump table
-	.section	.rodata          ; located in read only section, potentially far from here.
-	.align 4
-	.align 4
-	
-.L8: ; switch case table
-	.long   .L158-.L8 ; specific case
-	.long   .L157-.L8 ; specific case
-	.long   .L510-.L8 ; default case
-	.long   .L510-.L8 ; default case
-	; all the other cases
+    incw    32+_ZZ4mainE6system(%rip) ; Incrementing the 16-bit member program counter is all NOP does
+    jmp     .L5                       ; Jump to the common dispatch logic
+
+    ; Many lines of code later...
+
+.L5:
+    ; Common dispatch logic here
+    movq    16+_ZZ4mainE6system(%rip), %rdi ; Load up the pointer to the memory implementation
+    movzwl  32+_ZZ4mainE6system(%rip), %esi ; Load up the 16-bit member program counter for the readByte() call parameter
+    movq    (%rdi), %rax                    ; Get the memory virtual function table
+    call    *32(%rax)                       ; Virtual function call to the memory.readByte()
+
+    cmpb    $-2, %al                        ; Range check optimisation, skip all values beyond max defined case
+    ja      .L510                           ; Early out to default handler
+
+
+    movzbl  %al, %eax                       ; Zero extend the instruction byte
+    movslq  (%rbx,%rax,4), %rax             ; Look up the displacement value
+    addq    %rbx, %rax                      ; Add displacement
+    jmp     *%rax                           ; Jump to handler
+
+    ; switch/case jump table
+    .section    .rodata                     ; Located in read only section, potentially far away from here.
+    .align 4
+    .align 4
+
+.L8:
+    ; The generated switch case table
+    ; Notice each entry is .long, which is a 32-bit value.
+    .long   .L158-.L8 ; specific case
+    .long   .L157-.L8 ; specific case
+    .long   .L510-.L8 ; default case
+    .long   .L510-.L8 ; default case
+    ; all the other cases
 ```
 
 That's quite a lot of work, but the compiler has made an optimisation to the jump table by early identifying some unreachable targets and going directly to the default case.
@@ -433,35 +481,43 @@ Elimination of indirection.
 
 ```asm
 .L33: ; Handler for NOP
-	incw    16+_ZZ4mainE6system(%rip) ; Incrementing the member program counter. This has moved as the structure is slightly different now.
-	jmp     .L19 ; jump to the dispatch logic
+
+    ; Notes
+    ;
+    ; The compiler has changes register assignment and the address of generated jump table is now held in %rsi
+    ; Structural changes have moved offests to member variables.
+
+    incw    16+_ZZ4mainE6system(%rip)       ; Incrementing the 16-bit member program counter.
+    jmp     .L19                            ; Jump to the dispatch logic
 
     ; many lines of code later...
 
 .L19: ; next instruction fetch has been moved
-    movq    (%rcx), %rdx                    ; 
-    movzwl  16+_ZZ4mainE6system(%rip), %eax ; 
-    cmpb    $-2, (%rdx,%rax)                ; range check on byte in memory
-    jbe     .L525 ; only continue with instruction decode if case is in range
-	popq    %rbx  ; we had a bad opcode so restore call stack and ...
-	ret           ; ... exit interpreter
-	
-	; many lines later ...
+    movq    (%rcx), %rdx                    ; Get the raw memory pointer
+    movzwl  16+_ZZ4mainE6system(%rip), %eax ; Get the displacement of the byte in memory
+    cmpb    $-2, (%rdx,%rax)                ; Range check on byte in memory
+    jbe     .L525                           ; Only continue with instruction decode if case is in range. Note the flip.
+
+    popq    %rbx                            ; We had a bad opcode so restore call stack and ...
+    ret                                     ; ... exit interpreter
+
+    ; Many lines later ...
+
 .L525:
-	movzbl  (%rdx,%rax), %eax    ; load the instruction byte, hot now due to check.
-	movslq  (%rsi,%rax,4), %rax  ; get the corresponsing jump table record
-	addq    %rsi, %rax           ; compute jump ...
-	jmp     *%rax                ; ... and go
-	
+    movzbl  (%rdx,%rax), %eax    ; load the instruction byte, hot now due to check.
+    movslq  (%rsi,%rax,4), %rax  ; get the corresponsing jump table record
+    addq    %rsi, %rax           ; compute jump ...
+    jmp     *%rax                ; ... and go
+
     ; Same arrangement for the switch/case table
-	.section	.rodata
-	.align 4
-	.align 4
+    .section    .rodata
+    .align 4
+    .align 4
 .L22:
-	.long	.L172-.L22
-	.long	.L171-.L22
-	.long	.L521-.L22
-	; ...
+    .long   .L172-.L22
+    .long   .L171-.L22
+    .long   .L521-.L22
+    ; ...
 ```
 
 What is most evident here is the expected lack of virtual function calls. Access to the memory of the static abstraction is now direct array access.
@@ -472,26 +528,36 @@ Value pinning.
 
 ```asm
 .L33: ; Handler for NOP
-    incl    %eax ; Note that the program counter is now living in %eax.
-    jmp     .L19
 
-    ; many lines later
+    ; Notes
+    ;
+    ; Memory reference and 16-bit program counter are no longer structure member values and have been shadowed
+    ; into local variables.
+    ; The 16-bit program counter now lives in %eax
+
+    incl    %eax                ; Increment the 16-bit program counter. Even though long, %ax uses only the low 16 bits.
+    jmp     .L19                ; Jump to hander.
+
+    ; Many lines later...
+
 .L19:
-    movzwl  %ax, %ecx        ; note the lack of access to the structure members.
-	cmpb    $-2, (%rdx,%rcx) ; same range check
-	jbe    .L529
-	
-.L525:
-	popq	%rbx ; bad opcode, so restore stack and exit.
-	popq	%rbp ; note that we had to restore more registers due to increased local allocation.
-	ret
+    movzwl  %ax, %ecx           ; Zero extend the 16-bt value
+    cmpb    $-2, (%rdx,%rcx)    ; Same range check
+    jbe    .L529
 
-.L529: ; Common dispatch, completely register bound.
+.L525:
+    ; Early exit. Note that due to increased register allocation, there's more state to restore.
+    popq    %rbx
+    popq    %rbp
+    ret
+
+.L529:
+    ; Common dispatch, now completely register bound.
     movzbl  (%rdx,%rcx), %ecx
     movslq  (%rsi,%rcx,4), %rcx
     addq    %rsi, %rcx
-	jmp     *%rcx
-	 
+    jmp     *%rcx
+
     ; Same jump table
     .section    .rodata
     .align 4
@@ -499,7 +565,7 @@ Value pinning.
 .L22:
     .long   .L172-.L22
     .long   .L171-.L22
-	; ... remaining cases
+    ; ... remaining cases
 ```
 
 After this, it's obvious that the NOP itself is as small as it can be and the dispatching logic is the limit.
@@ -509,14 +575,21 @@ After this, it's obvious that the NOP itself is as small as it can be and the di
 Computed goto and threaded dispatch.
 
 ```asm
-        // Handler for the NOP instruction
-        incl	%eax                ; Increment the pinned program counter
+        ; Handler for the NOP instruction
+
+        ; Notes
+        ; We still have the memory and 16-bit program counters register allocated.
+        ; %ax contains the 16-bit program counter
+        ; %rsi contains the address of the base label.
+        ; %rdi contains the address of the 16-bit jump table
+
+        incl    %eax                ; Increment the pinned program counter
         movzwl  %ax, %edx           ; Dispatch:
         movzbl  (%rcx,%rdx), %edx   ;    Read the opcode at the new program counter location
         movzwl  (%rdi,%rdx,2), %edx ;    Load the 16-bit jump offset
-        addq    %rsi, %rdx          ;    Add to the label base
-        jmp     *%rdx               ;    Off we go
- 
+        addq    %rsi, %rdx          ;    Add to the label base and...
+        jmp     *%rdx               ;    ...off we go
+
 ```
 
 6 instructions, of which the last five are just the dispatch. Without pinning the program counter, the first instruction becomes a load/modify/store cycle that introduces stalls when called too quickly. This explains why pinning had such a dramatic impact.
@@ -597,33 +670,33 @@ Understandably the code was a bit of a mess by now so in order to bring some san
         BusDevice MemoryBus
     >
     struct CompileTimeSystem {
-    
+
         using CPU = CPUType<MemoryBus>;
-    
+
         CPU oCPU;
         MemoryBus oBus; // Embedded adjacent, meaning the internal array is hyper local to the CPU members too.
-    
+
         CompileTimeSystem() : oCPU(oBus) {
             // Ensure the CPU is constructed with the Bus
             // We promise not to call any MemoryBus operations from the CPU constructor as it's not initialised yet.
         }
-    
+
         CompileTimeSystem& run() {
             oCPU.run();
             return *this;
         }
-    
+
         CompileTimeSystem& runFrom(Address iStart) {
             oCPU.setProgramCounter(iStart).run();
             return *this;
         }
-    
+
         CompileTimeSystem& softReset() noexcept {
             oCPU.softReset();
             oBus.softReset();
             return *this;
         }
-    
+
         CompileTimeSystem& hardReset() noexcept {
             oCPU.hardReset();
             oBus.hardReset();
