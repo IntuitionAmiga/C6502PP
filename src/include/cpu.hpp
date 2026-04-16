@@ -94,7 +94,7 @@ namespace C6502PP {
 
     private:
 
-        void updateNZ(Byte iValue) noexcept {
+        inline static void updateNZ(Byte& iStatus, Byte const iValue) noexcept {
             iStatus &= F_CLR_NZ;
             iStatus |= iValue ? (iValue & F_NEGATIVE) : F_ZERO;
         }

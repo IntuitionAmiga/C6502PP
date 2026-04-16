@@ -1,5 +1,21 @@
 #ifdef _INTERNALS_INCLUDES_
 
+#ifdef UNPINNED
+#   define pin()
+#   define unpin()
+#else
+#define pin() \
+    auto& __restrict__ oOutside = this->oOutside; \
+    Address iProgramCounter = this->iProgramCounter; \
+    Byte iStatus = this->iStatus; \
+    Byte iAccumulator = this->iAccumulator;
+#define unpin() \
+    this->iProgramCounter = iProgramCounter; \
+    this->iStatus = iStatus; \
+    this->iAccumulator = iAccumulator;
+#endif
+
+
 #ifdef INTERPRET_SWITCH // switch-case
 #   define size(NAME) iProgramCounter += SIZE_ ## NAME
 #   define OP(NAME)
@@ -7,7 +23,7 @@
 #   define dispatch() break;
 #   define begin() for (;;) switch (oOutside.readByte(iProgramCounter))
 #   define done()
-#   define illegal() default: return *this;
+#   define illegal() default: unpin(); return *this;
 
 #else // Jump Table interpeter
 
@@ -319,12 +335,7 @@ using Jump = uint16_t;
 
 #endif
 
-#ifndef UNPINNED
-        // incendiary hot values to pin
-        auto& __restrict__ oOutside = this->oOutside;        
-        // inceniary hot values to pin
-        Address iProgramCounter = this->iProgramCounter;
-#endif
+        pin();
 
         Word iAddress;
         Byte iValue, iCarry;
@@ -335,49 +346,49 @@ using Jump = uint16_t;
 
             // Load Accumulator
             handle(LDA_IM) {
-                updateNZ(iAccumulator = load(iProgramCounter + 1));
+                updateNZ(iStatus, iAccumulator = load(iProgramCounter + 1));
                 size(LDA_IM);
                 dispatch();
             }
 
             handle(LDA_ZP) {
-                updateNZ(iAccumulator = load(zp()));
+                updateNZ(iStatus, iAccumulator = load(zp()));
                 size(LDA_ZP);
                 dispatch();
             }
 
             handle(LDA_ZPX) {
-                updateNZ(iAccumulator = load(zpx()));
+                updateNZ(iStatus, iAccumulator = load(zpx()));
                 size(LDA_ZPX);
                 dispatch();
             }
 
             handle(LDA_AB) {
-                updateNZ(iAccumulator = load(ab()));
+                updateNZ(iStatus, iAccumulator = load(ab()));
                 size(LDA_AB);
                 dispatch();
             }
 
             handle(LDA_ABX) {
-                updateNZ(iAccumulator = load(abx()));
+                updateNZ(iStatus, iAccumulator = load(abx()));
                 size(LDA_ABX);
                 dispatch();
             }
 
             handle(LDA_ABY) {
-                updateNZ(iAccumulator = load(aby()));
+                updateNZ(iStatus, iAccumulator = load(aby()));
                 size(LDA_ABY);
                 dispatch();
             }
 
             handle(LDA_IX) {
-                updateNZ(iAccumulator = load(ix()));
+                updateNZ(iStatus, iAccumulator = load(ix()));
                 size(LDA_IX);
                 dispatch();
             }
 
             handle(LDA_IY) {
-                updateNZ(iAccumulator = load(iy()));
+                updateNZ(iStatus, iAccumulator = load(iy()));
                 size(LDA_IY);
                 dispatch();
             }
@@ -427,31 +438,31 @@ using Jump = uint16_t;
 
             // Load X
             handle(LDX_IM) {
-                updateNZ(iXIndex = load(iProgramCounter + 1));
+                updateNZ(iStatus, iXIndex = load(iProgramCounter + 1));
                 size(LDX_IM);
                 dispatch();
             }
 
             handle(LDX_ZP) {
-                updateNZ(iXIndex = load(zp()));
+                updateNZ(iStatus, iXIndex = load(zp()));
                 size(LDX_ZP);
                 dispatch();
             }
 
             handle(LDX_ZPY) {
-                updateNZ(iXIndex = load(zpy()));
+                updateNZ(iStatus, iXIndex = load(zpy()));
                 size(LDX_ZPY);
                 dispatch();
             }
 
             handle(LDX_AB) {
-                updateNZ(iXIndex = load(ab()));
+                updateNZ(iStatus, iXIndex = load(ab()));
                 size(LDX_AB);
                 dispatch();
             }
 
             handle(LDX_ABY) {
-                updateNZ(iXIndex = load(aby()));
+                updateNZ(iStatus, iXIndex = load(aby()));
                 size(LDX_ABY);
                 dispatch();
             }
@@ -477,31 +488,31 @@ using Jump = uint16_t;
 
             // Load Y
             handle(LDY_IM) {
-                updateNZ(iYIndex = load(iProgramCounter + 1));
+                updateNZ(iStatus, iYIndex = load(iProgramCounter + 1));
                 size(LDY_IM);
                 dispatch();
             }
 
             handle(LDY_ZP) {
-                updateNZ(iYIndex = load(zp()));
+                updateNZ(iStatus, iYIndex = load(zp()));
                 size(LDY_ZP);
                 dispatch();
             }
 
             handle(LDY_ZPX) {
-                updateNZ(iYIndex = load(zpx()));
+                updateNZ(iStatus, iYIndex = load(zpx()));
                 size(LDY_ZPX);
                 dispatch();
             }
 
             handle(LDY_AB) {
-                updateNZ(iYIndex = load(ab()));
+                updateNZ(iStatus, iYIndex = load(ab()));
                 size(LDY_AB);
                 dispatch();
             }
 
             handle(LDY_ABX) {
-                updateNZ(iYIndex = load(abx()));
+                updateNZ(iStatus, iYIndex = load(abx()));
                 size(LDY_ABX);
                 dispatch();
             }
@@ -528,85 +539,85 @@ using Jump = uint16_t;
             // Compare
             // A - M {
             handle(CMP_IM) {
-                cmpByte(iAccumulator, load(iProgramCounter + 1));
+                cmpByte(iStatus, iAccumulator, load(iProgramCounter + 1));
                 size(CMP_IM);
                 dispatch();
             }
 
             handle(CMP_ZP) {
-                cmpByte(iAccumulator, load(zp()));
+                cmpByte(iStatus, iAccumulator, load(zp()));
                 size(CMP_ZP);
                 dispatch();
             }
 
             handle(CMP_ZPX) {
-                cmpByte(iAccumulator, load(zpx()));
+                cmpByte(iStatus, iAccumulator, load(zpx()));
                 size(CMP_ZPX);
                 dispatch();
             }
 
             handle(CMP_AB) {
-                cmpByte(iAccumulator, load(ab()));
+                cmpByte(iStatus, iAccumulator, load(ab()));
                 size(CMP_AB);
                 dispatch();
             }
 
             handle(CMP_ABX) {
-                cmpByte(iAccumulator, load(abx()));
+                cmpByte(iStatus, iAccumulator, load(abx()));
                 size(CMP_ABX);
                 dispatch();
             }
 
             handle(CMP_ABY) {
-                cmpByte(iAccumulator, load(aby()));
+                cmpByte(iStatus, iAccumulator, load(aby()));
                 size(CMP_ABY);
                 dispatch();
             }
 
             handle(CMP_IX) {
-                cmpByte(iAccumulator, load(ix()));
+                cmpByte(iStatus, iAccumulator, load(ix()));
                 size(CMP_IX);
                 dispatch();
             }
 
             handle(CMP_IY) {
-                cmpByte(iAccumulator, load(iy()));
+                cmpByte(iStatus, iAccumulator, load(iy()));
                 size(CMP_IY);
                 dispatch();
             }
 
             handle(CPX_IM) {
-                cmpByte(iXIndex, load(iProgramCounter + 1));
+                cmpByte(iStatus, iXIndex, load(iProgramCounter + 1));
                 size(CPX_IM);
                 dispatch();
             }
 
             handle(CPX_ZP) {
-                cmpByte(iXIndex, load(zp()));
+                cmpByte(iStatus, iXIndex, load(zp()));
                 size(CPX_ZP);
                 dispatch();
             }
 
             handle(CPX_AB) {
-                cmpByte(iXIndex, load(ab()));
+                cmpByte(iStatus, iXIndex, load(ab()));
                 size(CPX_AB);
                 dispatch();
             }
 
             handle(CPY_IM) {
-                cmpByte(iYIndex, load(iProgramCounter + 1));
+                cmpByte(iStatus, iYIndex, load(iProgramCounter + 1));
                 size(CPY_IM);
                 dispatch();
             }
 
             handle(CPY_ZP) {
-                cmpByte(iYIndex, load(zp()));
+                cmpByte(iStatus, iYIndex, load(zp()));
                 size(CPY_ZP);
                 dispatch();
             }
 
             handle(CPY_AB) {
-                cmpByte(iYIndex, load(ab()));
+                cmpByte(iStatus, iYIndex, load(ab()));
                 size(CPY_AB);
                 dispatch();
             }
@@ -719,25 +730,25 @@ using Jump = uint16_t;
 
             // Register transfer
             handle(TAX) {
-                updateNZ(iXIndex = iAccumulator);
+                updateNZ(iStatus, iXIndex = iAccumulator);
                 size(TAX);
                 dispatch();
             }
 
             handle(TAY) {
-                updateNZ(iYIndex = iAccumulator);
+                updateNZ(iStatus, iYIndex = iAccumulator);
                 size(TAY);
                 dispatch();
             }
 
             handle(TSX) {
-                updateNZ(iXIndex = iStackPointer);
+                updateNZ(iStatus, iXIndex = iStackPointer);
                 size(TSX);
                 dispatch();
             }
 
             handle(TXA) {
-                updateNZ(iAccumulator  = iXIndex);
+                updateNZ(iStatus, iAccumulator  = iXIndex);
                 size(TXA);
                 dispatch();
             }
@@ -750,7 +761,7 @@ using Jump = uint16_t;
             }
 
             handle(TYA) {
-                updateNZ(iAccumulator = iYIndex);
+                updateNZ(iStatus, iAccumulator = iYIndex);
                 size(TYA);
                 dispatch();
             }
@@ -770,7 +781,7 @@ using Jump = uint16_t;
             }
 
             handle(PLA) {
-                updateNZ(iAccumulator = pull());
+                updateNZ(iStatus, iAccumulator = pull());
                 size(PLA);
                 dispatch();
             }
@@ -784,13 +795,13 @@ using Jump = uint16_t;
 
             // Decrement
             handle(DEX) {
-                updateNZ(--iXIndex);
+                updateNZ(iStatus, --iXIndex);
                 size(DEX);
                 dispatch();
             }
 
             handle(DEY) {
-                updateNZ(--iYIndex);
+                updateNZ(iStatus, --iYIndex);
                 size(DEY);
                 dispatch();
             }
@@ -798,7 +809,7 @@ using Jump = uint16_t;
             handle(DEC_ZP) {
                 iAddress = zp();
                 iValue   = (load(iAddress) - 1);
-                updateNZ(iValue);
+                updateNZ(iStatus, iValue);
                 store(iAddress, iValue);
                 size(DEC_ZP);
                 dispatch();
@@ -807,7 +818,7 @@ using Jump = uint16_t;
             handle(DEC_ZPX) {
                 iAddress = zpx();
                 iValue   = (load(iAddress) - 1);
-                updateNZ(iValue);
+                updateNZ(iStatus, iValue);
                 store(iAddress, iValue);
                 size(DEC_ZPX);
                 dispatch();
@@ -816,7 +827,7 @@ using Jump = uint16_t;
             handle(DEC_AB) {
                 iAddress = ab();
                 iValue   = (load(iAddress) - 1);
-                updateNZ(iValue);
+                updateNZ(iStatus, iValue);
                 store(iAddress, iValue);
                 size(DEC_AB);
                 dispatch();
@@ -825,7 +836,7 @@ using Jump = uint16_t;
             handle(DEC_ABX) {
                 iAddress = abx();
                 iValue   = (load(iAddress) - 1);
-                updateNZ(iValue);
+                updateNZ(iStatus, iValue);
                 store(iAddress, iValue);
                 size(DEC_ABX);
                 dispatch();
@@ -834,13 +845,13 @@ using Jump = uint16_t;
 
             // Increment
             handle(INX) {
-                updateNZ(++iXIndex);
+                updateNZ(iStatus, ++iXIndex);
                 size(INX);
                 dispatch();
             }
 
             handle(INY) {
-                updateNZ(++iYIndex);
+                updateNZ(iStatus, ++iYIndex);
                 size(INY);
                 dispatch();
             }
@@ -848,7 +859,7 @@ using Jump = uint16_t;
             handle(INC_ZP) {
                 iAddress = zp();
                 iValue   = (load(iAddress) + 1);
-                updateNZ(iValue );
+                updateNZ(iStatus, iValue );
                 store(iAddress, iValue);
                 size(INC_ZP);
                 dispatch();
@@ -857,7 +868,7 @@ using Jump = uint16_t;
             handle(INC_ZPX) {
                 iAddress = zpx();
                 iValue   = (load(iAddress) + 1);
-                updateNZ(iValue);
+                updateNZ(iStatus, iValue);
                 store(iAddress, iValue);
                 size(INC_ZPX);
                 dispatch();
@@ -866,7 +877,7 @@ using Jump = uint16_t;
             handle(INC_AB) {
                 iAddress = ab();
                 iValue   = (load(iAddress) + 1);
-                updateNZ(iValue);
+                updateNZ(iStatus, iValue);
                 store(iAddress, iValue);
                 size(INC_AB);
                 dispatch();
@@ -875,7 +886,7 @@ using Jump = uint16_t;
             handle(INC_ABX) {
                 iAddress = abx();
                 iValue   = (load(iAddress) + 1);
-                updateNZ(iValue);
+                updateNZ(iStatus, iValue);
                 store(iAddress, iValue);
                 size(INC_ABX);
                 dispatch();
@@ -883,145 +894,145 @@ using Jump = uint16_t;
 
             // Logic Ops...
             handle(AND_IM) {
-                updateNZ(iAccumulator &= load(iProgramCounter + 1));
+                updateNZ(iStatus, iAccumulator &= load(iProgramCounter + 1));
                 size(AND_IM);
                 dispatch();
             }
 
             handle(AND_ZP) {
-                updateNZ(iAccumulator &= load(zp()));
+                updateNZ(iStatus, iAccumulator &= load(zp()));
                 size(AND_ZP);
                 dispatch();
             }
 
             handle(AND_ZPX) {
-                updateNZ(iAccumulator &= load(zpx()));
+                updateNZ(iStatus, iAccumulator &= load(zpx()));
                 size(AND_ZPX);
                 dispatch();
             }
 
             handle(AND_AB) {
-                updateNZ(iAccumulator &= load(ab()));
+                updateNZ(iStatus, iAccumulator &= load(ab()));
                 size(AND_AB);
                 dispatch();
             }
 
             handle(AND_ABX) {
-                updateNZ(iAccumulator &= load(abx()));
+                updateNZ(iStatus, iAccumulator &= load(abx()));
                 size(AND_ABX);
                 dispatch();
             }
 
             handle(AND_ABY) {
-                updateNZ(iAccumulator &= load(aby()));
+                updateNZ(iStatus, iAccumulator &= load(aby()));
                 size(AND_ABY);
                 dispatch();
             }
 
             handle(AND_IX) {
-                updateNZ(iAccumulator &= load(ix()));
+                updateNZ(iStatus, iAccumulator &= load(ix()));
                 size(AND_IX);
                 dispatch();
             }
 
             handle(AND_IY) {
-                updateNZ(iAccumulator &= load(iy()));
+                updateNZ(iStatus, iAccumulator &= load(iy()));
                 size(AND_IY);
                 dispatch();
             }
 
             handle(ORA_IM) {
-                updateNZ(iAccumulator |= load(iProgramCounter + 1));
+                updateNZ(iStatus, iAccumulator |= load(iProgramCounter + 1));
                 size(ORA_IM);
                 dispatch();
             }
 
             handle(ORA_ZP) {
-                updateNZ(iAccumulator |= load(zp()));
+                updateNZ(iStatus, iAccumulator |= load(zp()));
                 size(ORA_ZP);
                 dispatch();
             }
 
             handle(ORA_ZPX) {
-                updateNZ(iAccumulator |= load(zpx()));
+                updateNZ(iStatus, iAccumulator |= load(zpx()));
                 size(ORA_ZPX);
                 dispatch();
             }
 
             handle(ORA_AB) {
-                updateNZ(iAccumulator |= load(ab()));
+                updateNZ(iStatus, iAccumulator |= load(ab()));
                 size(ORA_AB);
                 dispatch();
             }
 
             handle(ORA_ABX) {
-                updateNZ(iAccumulator |= load(abx()));
+                updateNZ(iStatus, iAccumulator |= load(abx()));
                 size(ORA_ABX);
                 dispatch();
             }
 
             handle(ORA_ABY) {
-                updateNZ(iAccumulator |= load(aby()));
+                updateNZ(iStatus, iAccumulator |= load(aby()));
                 size(ORA_ABY);
                 dispatch();
             }
 
             handle(ORA_IX) {
-                updateNZ(iAccumulator |= load(ix()));
+                updateNZ(iStatus, iAccumulator |= load(ix()));
                 size(ORA_IX);
                 dispatch();
             }
 
             handle(ORA_IY) {
-                updateNZ(iAccumulator |= load(iy()));
+                updateNZ(iStatus, iAccumulator |= load(iy()));
                 size(ORA_IY);
                 dispatch();
             }
 
             handle(EOR_IM) {
-                updateNZ(iAccumulator ^= load(iProgramCounter + 1));
+                updateNZ(iStatus, iAccumulator ^= load(iProgramCounter + 1));
                 size(EOR_IM);
                 dispatch();
             }
 
             handle(EOR_ZP) {
-                updateNZ(iAccumulator ^= load(zp()));
+                updateNZ(iStatus, iAccumulator ^= load(zp()));
                 size(EOR_ZP);
                 dispatch();
             }
 
             handle(EOR_ZPX) {
-                updateNZ(iAccumulator ^= load(zpx()));
+                updateNZ(iStatus, iAccumulator ^= load(zpx()));
                 size(EOR_ZPX);
                 dispatch();
             }
 
             handle(EOR_AB) {
-                updateNZ(iAccumulator ^= load(ab()));
+                updateNZ(iStatus, iAccumulator ^= load(ab()));
                 size(EOR_AB);
                 dispatch();
             }
 
             handle(EOR_ABX) {
-                updateNZ(iAccumulator ^= load(abx()));
+                updateNZ(iStatus, iAccumulator ^= load(abx()));
                 size(EOR_ABX);
                 dispatch();
             }
 
             handle(EOR_ABY) {
-                updateNZ(iAccumulator ^= load(aby()));
+                updateNZ(iStatus, iAccumulator ^= load(aby()));
                 size(EOR_ABY);
                 dispatch();
             }
 
             handle(EOR_IX) {
-                updateNZ(iAccumulator ^= load(ix()));
+                updateNZ(iStatus, iAccumulator ^= load(ix()));
                 size(EOR_IX);
                 dispatch();
             }
 
             handle(EOR_IY) {
-                updateNZ(iAccumulator ^= load(iy()));
+                updateNZ(iStatus, iAccumulator ^= load(iy()));
                 size(EOR_IY);
                 dispatch();
             }
@@ -1030,31 +1041,31 @@ using Jump = uint16_t;
             handle(ASL_A) {
                 iStatus &= ~F_CARRY;
                 iStatus |= (iAccumulator & F_NEGATIVE) >> 7; // sign -> carry
-                updateNZ(iAccumulator <<= 1);
+                updateNZ(iStatus, iAccumulator <<= 1);
                 size(ASL_A);
                 dispatch();
             }
 
             handle(ASL_ZP) {
-                aslMemory(zp());
+                aslMemory(oOutside, iStatus, zp());
                 size(ASL_ZP);
                 dispatch();
             }
 
             handle(ASL_ZPX) {
-                aslMemory(zpx());
+                aslMemory(oOutside, iStatus, zpx());
                 size(ASL_ZPX);
                 dispatch();
             }
 
             handle(ASL_AB) {
-                aslMemory(ab());
+                aslMemory(oOutside, iStatus, ab());
                 size(ASL_AB);
                 dispatch();
             }
 
             handle(ASL_ABX) {
-                aslMemory(abx());
+                aslMemory(oOutside, iStatus, abx());
                 size(ASL_ABX);
                 dispatch();
             }
@@ -1063,7 +1074,7 @@ using Jump = uint16_t;
             handle(LSR_A) {
                 iStatus &= ~F_CARRY;
                 iStatus |= (iAccumulator & F_CARRY);
-                updateNZ(iAccumulator >>= 1);
+                updateNZ(iStatus, iAccumulator >>= 1);
                 size(LSR_A);
                 dispatch();
             }
@@ -1072,31 +1083,31 @@ using Jump = uint16_t;
                 iCarry = (iStatus & F_CARRY);
                 iStatus &= ~F_CARRY;
                 iStatus |= (iAccumulator & F_NEGATIVE) >> 7; // sign -> carry
-                updateNZ( iAccumulator = ((iAccumulator << 1) | iCarry) );
+                updateNZ(iStatus,  iAccumulator = ((iAccumulator << 1) | iCarry) );
                 size(ROL_A);
                 dispatch();
             }
 
             handle(ROL_ZP) {
-                rolMemory(zp());
+                rolMemory(oOutside, iStatus, zp());
                 size(ROL_ZP);
                 dispatch();
             }
 
             handle(ROL_ZPX) {
-                rolMemory(zpx());
+                rolMemory(oOutside, iStatus, zpx());
                 size(ROL_ZPX);
                 dispatch();
             }
 
             handle(ROL_AB) {
-                rolMemory(ab());
+                rolMemory(oOutside, iStatus, ab());
                 size(ROL_AB);
                 dispatch();
             }
 
             handle(ROL_ABX) {
-                rolMemory(abx());
+                rolMemory(oOutside, iStatus, abx());
                 size(ROL_ABX);
                 dispatch();
             }
@@ -1105,55 +1116,55 @@ using Jump = uint16_t;
                 iCarry = (iStatus & F_CARRY) << 7; // carry -> sign
                 iStatus &= ~F_CARRY;
                 iStatus |= (iAccumulator & F_CARRY); // carry -> carry
-                updateNZ(iAccumulator = ((iAccumulator >> 1) | iCarry));
+                updateNZ(iStatus, iAccumulator = ((iAccumulator >> 1) | iCarry));
                 size(ROR_A);
                 dispatch();
             }
 
             handle(ROR_ZP) {
-                rorMemory(zp());
+                rorMemory(oOutside, iStatus, zp());
                 size(ROR_ZP);
                 dispatch();
             }
 
             handle(ROR_ZPX) {
-                rorMemory(zpx());
+                rorMemory(oOutside, iStatus, zpx());
                 size(ROR_ZPX);
                 dispatch();
             }
 
             handle(ROR_AB) {
-                rorMemory(ab());
+                rorMemory(oOutside, iStatus, ab());
                 size(ROR_AB);
                 dispatch();
             }
 
             handle(ROR_ABX) {
-                rorMemory(abx());
+                rorMemory(oOutside, iStatus, abx());
                 size(ROR_ABX);
                 dispatch();
             }
 
             handle(LSR_ZP) {
-                lsrMemory(zp());
+                lsrMemory(oOutside, iStatus, zp());
                 size(LSR_ZP);
                 dispatch();
             }
 
             handle(LSR_ZPX) {
-                lsrMemory(zpx());
+                lsrMemory(oOutside, iStatus, zpx());
                 size(LSR_ZPX);
                 dispatch();
             }
 
             handle(LSR_AB) {
-                lsrMemory(ab());
+                lsrMemory(oOutside, iStatus, ab());
                 size(LSR_AB);
                 dispatch();
             }
 
             handle(LSR_ABX) {
-                lsrMemory(abx());
+                lsrMemory(oOutside, iStatus, abx());
                 size(LSR_ABX);
                 dispatch();
             }
@@ -1162,49 +1173,49 @@ using Jump = uint16_t;
             // Addition
             // A + M + C
             handle(ADC_IM) {
-                addByteWithCarry(load(iProgramCounter + 1));
+                addByteWithCarry(iStatus, iAccumulator, load(iProgramCounter + 1));
                 size(ADC_IM);
                 dispatch();
             }
 
             handle(ADC_ZP) {
-                addByteWithCarry(load(zp()));
+                addByteWithCarry(iStatus, iAccumulator, load(zp()));
                 size(ADC_ZP);
                 dispatch();
             }
 
             handle(ADC_ZPX) {
-                addByteWithCarry(load(zpx()));
+                addByteWithCarry(iStatus, iAccumulator, load(zpx()));
                 size(ADC_ZPX);
                 dispatch();
             }
 
             handle(ADC_AB) {
-                addByteWithCarry(load(ab()));
+                addByteWithCarry(iStatus, iAccumulator, load(ab()));
                 size(ADC_AB);
                 dispatch();
             }
 
             handle(ADC_ABX) {
-                addByteWithCarry(load(abx()));
+                addByteWithCarry(iStatus, iAccumulator, load(abx()));
                 size(ADC_ABX);
                 dispatch();
             }
 
             handle(ADC_ABY) {
-                addByteWithCarry(load(aby()));
+                addByteWithCarry(iStatus, iAccumulator, load(aby()));
                 size(ADC_ABY);
                 dispatch();
             }
 
             handle(ADC_IX){
-                addByteWithCarry(load(ix()));
+                addByteWithCarry(iStatus, iAccumulator, load(ix()));
                 size(ADC_IX);
                 dispatch();
             }
 
             handle(ADC_IY) {
-                addByteWithCarry(load(iy()));
+                addByteWithCarry(iStatus, iAccumulator, load(iy()));
                 size(ADC_IY);
                 dispatch();
             }
@@ -1212,49 +1223,49 @@ using Jump = uint16_t;
             // Subtract
             // A - M - B => A + (255 - M) - (1 - C) => A + ~M + C
             handle(SBC_IM) {
-                subByteWithCarry(load(iProgramCounter + 1));
+                subByteWithCarry(iStatus, iAccumulator, (load(iProgramCounter + 1)));
                 size(SBC_IM);
                 dispatch();
             }
 
             handle(SBC_ZP) {
-                subByteWithCarry(load(zp()));
+                subByteWithCarry(iStatus, iAccumulator, (load(zp())));
                 size(SBC_ZP);
                 dispatch();
             }
 
             handle(SBC_ZPX) {
-                subByteWithCarry(load(zpx()));
+                subByteWithCarry(iStatus, iAccumulator, (load(zpx())));
                 size(SBC_ZPX);
                 dispatch();
             }
 
             handle(SBC_AB) {
-                subByteWithCarry(load(ab()));
+                subByteWithCarry(iStatus, iAccumulator, (load(ab())));
                 size(SBC_AB);
                 dispatch();
             }
 
             handle(SBC_ABX) {
-                subByteWithCarry(load(abx()));
+                subByteWithCarry(iStatus, iAccumulator, (load(abx())));
                 size(SBC_ABX);
                 dispatch();
             }
 
             handle(SBC_ABY) {
-                subByteWithCarry(load(aby()));
+                subByteWithCarry(iStatus, iAccumulator, (load(aby())));
                 size(SBC_ABY);
                 dispatch();
             }
 
             handle(SBC_IX) {
-                subByteWithCarry(load(ix()));
+                subByteWithCarry(iStatus, iAccumulator, (load(ix())));
                 size(SBC_IX);
                 dispatch();
             }
 
             handle(SBC_IY) {
-                subByteWithCarry(load(iy()));
+                subByteWithCarry(iStatus, iAccumulator, (load(iy())));
                 size(SBC_IY);
                 dispatch();
             }
@@ -1355,7 +1366,7 @@ using Jump = uint16_t;
             illegal();
         }
         // Fall through after illegal
-        this->iProgramCounter = iProgramCounter; // restore from shadow
+        unpin();
         return *this;
     }
 

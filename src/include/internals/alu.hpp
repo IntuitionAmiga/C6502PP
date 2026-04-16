@@ -4,7 +4,7 @@
      * Assorted reusable ALU bits
      */
 
-    void cmpByte(Byte iTo, Byte iValue) noexcept {
+    inline static void cmpByte(Byte& iStatus, Byte const iTo, Byte const iValue) noexcept {
         Byte iRes = iTo - iValue;
 
         // Deal with the result
@@ -13,62 +13,62 @@
         iStatus |= (iValue > iTo) ? 0 : F_CARRY;
     }
 
-    Byte shiftLeftWithCarry(Byte iValue) noexcept {
+    inline static Byte shiftLeftWithCarry(Byte& iStatus, Byte iValue) noexcept {
         iStatus &= ~F_CARRY;
         iStatus |= (iValue & F_NEGATIVE) >> 7; // sign -> carry
-        updateNZ( iValue <<= 1 );
+        updateNZ(iStatus,  iValue <<= 1 );
         return iValue;
     }
 
-    Byte shiftRightWithCarry(Byte iValue) noexcept {
+    inline static Byte shiftRightWithCarry(Byte& iStatus, Byte iValue) noexcept {
         iStatus &= ~F_CARRY;
         iStatus |= (iValue & F_CARRY);
-        updateNZ( iValue >>= 1 );
+        updateNZ(iStatus,  iValue >>= 1 );
         return iValue;
     }
 
 
-    void lsrMemory(Address iAddress) noexcept {
+    inline static void lsrMemory(Bus& oOutside,  Byte& iStatus, Address const iAddress) noexcept {
         oOutside.writeByte(
             iAddress,
-            shiftRightWithCarry(oOutside.readByte(iAddress))
+            shiftRightWithCarry(iStatus, oOutside.readByte(iAddress))
         );
     }
 
-    void aslMemory(Address iAddress) noexcept {
+    inline static void aslMemory(Bus& oOutside, Byte& iStatus, Address const iAddress) noexcept {
         oOutside.writeByte(
             iAddress,
-            shiftLeftWithCarry(oOutside.readByte(iAddress))
+            shiftLeftWithCarry(iStatus, oOutside.readByte(iAddress))
         );
     }
 
-    Byte rotateLeftWithCarry(Byte iValue) noexcept {
+    inline static Byte rotateLeftWithCarry(Byte& iStatus, Byte iValue) noexcept {
         Byte iCarry = iStatus & F_CARRY;
         iStatus &= ~F_CARRY;
         iStatus |= (iValue & F_NEGATIVE) >> 7; // sign -> carry
-        updateNZ( iValue = ((iValue << 1) | iCarry) );
+        updateNZ(iStatus,  iValue = ((iValue << 1) | iCarry) );
         return iValue;
     }
 
-    Byte rotateRightWithCarry(Byte iValue) noexcept {
+    inline static Byte rotateRightWithCarry(Byte& iStatus, Byte iValue) noexcept {
         uint8_t iCarry = (iStatus & F_CARRY) << 7; // carry -> sign
         iStatus &= ~F_CARRY;
         iStatus |= (iValue & F_CARRY); // carry -> carry
-        updateNZ( iValue = ( (iValue >> 1) | iCarry) );
+        updateNZ(iStatus,  iValue = ( (iValue >> 1) | iCarry) );
         return iValue;
     }
 
-    void rolMemory(Address iAddress) noexcept {
+    inline static void rolMemory(Bus& oOutside, Byte& iStatus, Address const iAddress) noexcept {
         oOutside.writeByte(
             iAddress,
-            rotateLeftWithCarry(oOutside.readByte(iAddress))
+            rotateLeftWithCarry(iStatus, oOutside.readByte(iAddress))
         );
     }
 
-    void rorMemory(Address iAddress) noexcept {
+    inline static void rorMemory(Bus& oOutside, Byte& iStatus, Address const iAddress) noexcept {
         oOutside.writeByte(
             iAddress,
-            rotateRightWithCarry(oOutside.readByte(iAddress))
+            rotateRightWithCarry(iStatus, oOutside.readByte(iAddress))
         );
     }
 
@@ -77,7 +77,7 @@
      * Immediate result is allowed to overflow the normal byte range so that we can
      * use bit 8 as the overflow.
      */
-    unsigned addBCDWithCarry(Byte iValue) noexcept {
+    inline static unsigned addBCDWithCarry(Byte& iStatus, Byte& iAccumulator, Byte iValue) noexcept {
         // Nybbles
         unsigned iSumL = (iAccumulator & 0x0F) + (iValue & 0x0F) + (iStatus & F_CARRY);
         unsigned iSumH = (iAccumulator & 0xF0) + (iValue & 0xF0);
@@ -97,7 +97,7 @@
      * Immediate result is allowed to underflow the normal byte range so that we can
      * use bit 8 as the underflow.
      */
-    unsigned subBCDWithCarry(Byte iValue) noexcept {
+    inline static unsigned subBCDWithCarry(Byte& iStatus, Byte& iAccumulator, Byte iValue) noexcept {
         // Nybbles
         unsigned iDiffL = (iAccumulator & 0x0F) - (iValue & 0x0F) - (~iStatus & F_CARRY);
         unsigned iDiffH = (iAccumulator & 0xF0) - (iValue & 0xF0);
@@ -112,9 +112,9 @@
         return (iDiffH & 0x1F0) | (iDiffL & 0x0F);
     }
 
-    void addByteWithCarry(Byte iValue) noexcept {
+    inline static void addByteWithCarry(Byte& iStatus, Byte& iAccumulator, Byte iValue) noexcept {
         unsigned iSum = (iStatus & F_DECIMAL) ?
-            addBCDWithCarry(iValue) :
+            addBCDWithCarry(iStatus, iAccumulator, iValue) :
             (iStatus & F_CARRY) + iValue + iAccumulator;
 
         Byte iRes = iSum; // & 0xFF truncates
@@ -131,9 +131,9 @@
         iAccumulator = iRes;
     }
 
-    void subByteWithCarry(Byte iValue) noexcept {
+    inline static void subByteWithCarry(Byte& iStatus, Byte& iAccumulator, Byte iValue) noexcept {
         unsigned iDiff = (iStatus & F_DECIMAL) ?
-            subBCDWithCarry(iValue) :
+            subBCDWithCarry(iStatus, iAccumulator, iValue) :
             iAccumulator - iValue - (~iStatus & F_CARRY);
 
         Byte iRes = iDiff; // & 0xFF truncates

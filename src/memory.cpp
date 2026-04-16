@@ -13,8 +13,8 @@ private:
 
 public:
     ~RuntimeSimpleMemory() {}
-    Byte readByte(uint16_t address) const noexcept;
-    void writeByte(Address address, Byte value) noexcept;
+    Byte readByte(Address const address) const noexcept;
+    void writeByte(Address const address, Byte value) noexcept;
     RuntimeSimpleMemory& softReset() noexcept;
     RuntimeSimpleMemory& hardReset() noexcept;
     RuntimeSimpleMemory& blockFill(Address iFrom, Word iLength, Byte iValue) noexcept;
@@ -22,11 +22,11 @@ public:
 };
 
 
-Byte RuntimeSimpleMemory::readByte(uint16_t address) const noexcept {
+Byte RuntimeSimpleMemory::readByte(Address const address) const noexcept {
     return aBytes[address];
 }
 
-void RuntimeSimpleMemory::writeByte(Address address, Byte value) noexcept {
+void RuntimeSimpleMemory::writeByte(Address const address, Byte const value) noexcept {
     aBytes[address] = value;
 }
 

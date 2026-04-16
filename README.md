@@ -89,6 +89,9 @@ The initial and final state of the CPU emulator is shown, along with the nanosec
 Generally the first cold run will have the least reliable timing, whereas the subsequent runs are closer together as other variances are reduced.
 
 ## Basic Results
+
+Note: Benchmarks have been rerun since the original build to capture const correctness changes and additonal pinning that has dramatically improved the general performance in some cases.
+
 From silicon to SixPhphive02 through to the four iterations of the C++ port, the data are given below. All emulation tests were performed on a 2018 i7-7500U running in performance mode at 3.5GHz.
 
 **Peak NOP Throughput and Klaus Dormann**
@@ -96,14 +99,14 @@ From silicon to SixPhphive02 through to the four iterations of the C++ port, the
 | **System** | **Klaus Dormann** | **NOP** |
 | ---: | ---: | ---: |
 | PHP Abstract Switch | 3.07 | 4.3 |
-| C++ Abstract Switch | 178 | 433 |
+| C++ Abstract Switch | 188 | 490 |
 | C++ Abstract Switch + LTO | 350 |641 |
 | C++ Static Switch | 293 | 523 |
 | C++ Static Switch + LTO | 297 | 523 |
-| C++ Static Switch + Pin | 371 | 869 |
-| C++ Static Switch + Pin + LTO | 372 | 867 |
-| **C++ Static Jump + Pin** | **621** | **1734** |
-| C++ Static Jump + Pin + LTO | 608 | 1730 |
+| C++ Static Switch + Pin | 567 | 1153 |
+| C++ Static Switch + Pin + LTO | 552 | 1143 |
+| **C++ Static Jump + Pin** | **705** | **1730** |
+| C++ Static Jump + Pin + LTO | 682 | 1726 |
 
 
 **Raising the bar (chart)**
@@ -116,7 +119,7 @@ The silicon and SixPhphive02 performance are completely insbisible at that scale
 
 ## Reality Cheque, Please!
 
-- Hitting **1734** MIPS at **3.5 GHz** is a throughput of one emulated NOP per two host clock cycles in a single-threaded workload.
+- Hitting **1730** MIPS at **3.5 GHz** is a throughput of one emulated NOP per two host clock cycles in a single-threaded workload.
 - Since the complete size of the final NOP handler is six x64 instructions, this means three instructions retired per clock (assuming an even split).
 - This is a testament to modern out-of-order, superscalar execution:
     - The i7-7500U (Kaby Lake) has a peak of four instructions per clock in a single thread.
@@ -170,14 +173,14 @@ The following table is one sample local run of the current benchmark matrix on t
 
 | **Build** | **ALU** | **Memory** | **Call** | **Branch** | **Mixed** |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-| C++ Abstract Switch | 310.54 | 249.52 | 237.94 | 314.33 | 234.94 |
-| C++ Abstract Switch + LTO | 357.05 | 381.72 | 365.09 | 420.35 | 302.20 |
-| C++ Static Switch | 393.81 | 426.28 | 442.40 | 410.16 | 311.57 |
-| C++ Static Switch + LTO | 355.97 | 419.08 | 455.75 | 391.08 | 338.06 |
-| C++ Static Switch + Pin | 237.73 | 309.90 | 282.97 | 287.15 | 217.52 |
-| C++ Static Switch + Pin + LTO | 240.36 | 315.43 | 304.63 | 283.31 | 214.76 |
-| C++ Static Jump + Pin | 489.72 | 691.20 | 649.29 | 721.51 | 485.99 |
-| C++ Static Jump + Pin + LTO | 489.44 | 691.94 | 649.44 | 730.30 | 473.01 |
+| C++ Abstract Switch | 313.39 | 248.80 | 236.20 | 314.21 |234.84 |
+| C++ Abstract Switch + LTO | 347.27 | 379.58 | 364.34 | 417.90 | 306.05 |
+| C++ Static Switch | 395.58 | 424.98 | 441.52 | 410.39 | 340.74 |
+| C++ Static Switch + LTO | 393.08 | 416.06 | 453.65 | 384.27 | 336.92 |
+| C++ Static Switch + Pin | 570.34 | 669.28 | 566.93 | 670.89 | 480.64 |
+| C++ Static Switch + Pin + LTO | 558.52 | 670.31 | 616.83 | 662.60 | 448.32 |
+| C++ Static Jump + Pin | 675.04 | 708.51 | 647.84 | 788.44 | 536.79 |
+| C++ Static Jump + Pin + LTO | 676.73 | 709.43 | 651.05 | 792.48 | 536.72 |
 
 Numbers above were taken from a `BENCH_SECONDS=1` smoke run to keep the example quick to reproduce. Use the default 30-second duration for more stable comparisons.
 
@@ -248,10 +251,10 @@ The first port was a like-for-like reimplementation. I didn't port everything, j
 
 The same basic benchmarks were ran on the same hardware under the same conditions:
 
-- NOP peaked at **433 MIPS**
-- Klaus Dormann diagnostic achieved **178 MIPS**
+- NOP peaked at **490 MIPS** (433 before const correctness updates)
+- Klaus Dormann diagnostic achieved **186 MIPS** (178 MIPS before const correctness updates)
 
-This was already a massive **100x** speedup over SixPhphive02 for the simplest operation and a **58x** speed up more generally.
+This was already a massive **114x** speedup over SixPhphive02 for the simplest operation and a **60x** speed up more generally.
 
 Turning on _Link Time Optimisation_ made an equally impressive difference.
 
@@ -298,8 +301,8 @@ The compiler was still reluctant to trust the shadowed reference to the memory. 
 
 The same benchmarks were repeated:
 
-- NOP peaked at **869 MIPS**  giving a 66% improvement over the previous iteration.
-- Klaus Dormann diagnostic achieved **371 MIPS** giving a 27% improvement over the previous iteration
+- NOP peaked at **1153 MIPS** giving a 220% improvement over the previous iteration (was 869 before additonal pinning)
+- Klaus Dormann diagnostic achieved **567 MIPS** giving a 91% improvement over the previous iteration (was 371 before additional pinning)
 
 As with the previous iteration, enabling LTO did not have any meaningful effect without any abstractions to devirtualise.
 
@@ -332,13 +335,15 @@ Doing this without radically having to rewrite everything was solved using a set
 ```
         begin() {
             handle(LDA_IM) {
-                updateNZ(iAccumulator = load(iProgramCounter + 1));
+                // updateNZ is static and takes reference parameters to iStatus
+                // to facilitate pinned and unpinned compilation.
+                updateNZ(iStatus, iAccumulator = load(iProgramCounter + 1));
                 size(LDA_IM);
                 dispatch();
             }
 
             handle(LDA_ZP) {
-                updateNZ(iAccumulator = load(addrZeroPageByte()));
+                updateNZ(iStatus, iAccumulator = load(addrZeroPageByte()));
                 size(LDA_ZP);
                 dispatch();
             }
@@ -355,13 +360,13 @@ For the switch/case model, this produces:
         // Forever
         for (;;) switch (oOutside.readByte(iProgramCounter)) {
             case LDA_IM: {
-                updateNZ(iAccumulator = oOutside.readByte(iProgramCounter + 1));
+                updateNZ(iStatus, iAccumulator = oOutside.readByte(iProgramCounter + 1));
                 iProgramCounter += SIZE_LDA_IM;
                 break;
             }
 
             case LDA_ZP: {
-                updateNZ(iAccumulator = oOutside.readByte(addrZeroPageByte()));
+                updateNZ(iStatus, iAccumulator = oOutside.readByte(addrZeroPageByte()));
                 iProgramCounter += SIZE_LDA_ZP;
                 break;
             }
@@ -392,7 +397,7 @@ For the computed goto model, something rather different:
         {
             // We stay in this block, jumping from label to label, until something causes us to leave.
             L_LDA_IM: {
-                updateNZ(iAccumulator = oOutside.readByte(iProgramCounter + 1));
+                updateNZ(iStatus, iAccumulator = oOutside.readByte(iProgramCounter + 1));
                 iProgramCounter += SIZE_LDA_IM;
 
                 // Jump straight to the next handler...
@@ -400,7 +405,7 @@ For the computed goto model, something rather different:
             }
 
             L_LDA_ZP: {
-                updateNZ(iAccumulator = oOutside.readByte(addrZeroPageByte()));
+                updateNZ(iStatus, iAccumulator = oOutside.readByte(addrZeroPageByte()));
                 iProgramCounter += SIZE_LDA_ZP;
 
                 // Jump straight to the next handler...
@@ -416,10 +421,33 @@ For the computed goto model, something rather different:
 
 All that said, only the numbers matter. The same benchmarks were repeated:
 
-- NOP peaked at **1734 MIPS** giving a whopping 2x faster than the previous iteration.
-- Klaus Dormann achived **621 MIPS** giving a 67% increase over the previous iteration.
+- NOP peaked at **1730 MIPS** giving a 50% improvement than the previous iteration.
+- Klaus Dormann achived **705 MIPS** giving a 25% increase over the previous iteration (was 621 MIPS before additional pinning).
 
 Turning on LTO for this build actually had a detrimental effect, costing a few percent on each metric. My assumption is that attempting to optimise the code globally makes the set of registers available within the interpreter loop smaller, increasing pressure there.
+
+### Attempt 5: Lessons from the Frankengo Experiment: More pins, please.
+
+Recently I ported the work to a [Frankenstein's monster](https://github.com/0xABADCAFE/G6502PP/tree/main) of the CPP macros and Go, just to see what would happen. Since Go doesn't really have a function inline guarantee, I ended up converting quite a few of the helper functions to macros. More than that, though, the complete set of 6502 registers were pinned to local variables. Not particularly because I had intended to, but because it was just easier to work that way.
+
+The result, however, was that for the basic switch case model was hitting 450 MIPS in the Klaus Dormann tests, compared to the 371 MIPS of the C++ version. I suspected that with all other things being approximately equal, the difference must be due to the additional pinning since both the accumulator and status register are very hot. So I set about fixing it.
+
+- All inline helper functions were made `static` and accept the `iStatus` and `iAccumulator` registers as reference parameters.
+- Additional const correctness checks put in place to make sure the compiler understood if a reference parameter would be unchanged.
+
+These changes had a significant impact on the versions that use pinning, but equally improved some of the others since the move to references likely increased the duration of register caching of values in more complex operations.
+
+- For the switch/case, register pinned build, the Klaus Dormann throughput increased from 371 to 567 MIPS, an increase of 53%.
+- More surprisingly, even the peak NOP throughput increased from 869 to 1153 MIPS, an increase of 33%.
+
+Most importantly, of course, the C++ version was now faster than the abused gopher one:
+
+- 26% faster Klaus Dormann execution than the equivalent Go build.
+- 35% faster (1153 vs 856) peak NOP throughput than the equivalent Go build.
+
+At this juncture, both builds are using a switch/case interpreter with code that is as inline as possible and hopefully comparable register allocation for the pinned values. The Go build was also designed to bypass all bounds checking for the memory accesses and avoid anything that might result in garbage collection cycles during execution.
+
+- The remaining differnces are likely down to the maturity of the compiler and the extra tuning parameters availabe to GCC rather than any specific deficiency of Go as a language.
 
 **Eternal Noptimist: Evolution of a NOP handler:**
 

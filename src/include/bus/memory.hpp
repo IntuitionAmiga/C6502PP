@@ -16,11 +16,11 @@ private:
     Byte aBytes[MEM_SIZE] = { 0 };
 
 public:
-    Byte readByte(uint16_t iAddress) const noexcept {
+    Byte readByte(Address const iAddress) const noexcept {
         return aBytes[iAddress];
     }
 
-    void writeByte(Address iAddress, Byte iValue) noexcept {
+    void writeByte(Address const iAddress, Byte const iValue) noexcept {
         aBytes[iAddress] = iValue;
     }
 
@@ -65,8 +65,8 @@ public:
     virtual ~AbstractMemory() {};
     virtual AbstractMemory& softReset() noexcept = 0;
     virtual AbstractMemory& hardReset() noexcept = 0;
-    virtual Byte readByte(Address iAddress) const noexcept = 0;
-    virtual void writeByte(Address iAddress, Byte iByte) noexcept = 0;
+    virtual Byte readByte(Address const iAddress) const noexcept = 0;
+    virtual void writeByte(Address const iAddress, Byte iByte) noexcept = 0;
     virtual AbstractMemory& blockFill(Address iFrom, Word iLength, Byte iValue) noexcept = 0;
     virtual size_t loadImage(char const* sImage, Address iLocation = 0) = 0;
 
