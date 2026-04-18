@@ -1,0 +1,95 @@
+#ifndef _CPU_GH_
+#define _CPU_GH_
+
+import "unsafe"
+
+type Byte = uint8
+type Word = uint16
+type Address = uint16
+type AddressSpace [65536]Byte
+
+type MOS6502 struct {
+    pSpace          *AddressSpace
+    pOutside        unsafe.Pointer
+    iProgramCounter Address
+    iAccumulator    Byte
+    iStatus         Byte
+    iXIndex         Byte
+    iYIndex         Byte
+    iStackPointer   Byte
+
+}
+
+func flagChar(status Byte, mask Byte, char rune) rune {
+	if status & mask != 0 {
+		return char
+	}
+	return '-'
+}
+
+func (cpu *MOS6502) ShowStatus() {
+	// 1. Memory Access using the safe pointer (preferred for debug)
+	// or use readByte macro logic if you prefer.
+	currentOp := cpu.pSpace[cpu.iProgramCounter]
+	stackVal  := cpu.pSpace[STACK_BASE + Address(cpu.iStackPointer)]
+
+	fmt.Printf(
+		"PC: 0x%04X => 0x%02X\n"+
+		"SP: 0x%04X => 0x%02X\n"+
+		"A: 0x%02X [%4d]\n"+
+		"X: 0x%02X [%4d]\n"+
+		"Y: 0x%02X [%4d]\n"+
+		"F: [%c %c | %c %c %c %c %c]\n",
+		cpu.iProgramCounter,
+		currentOp,
+		STACK_BASE + Address(cpu.iStackPointer),
+		stackVal,
+		cpu.iAccumulator,
+		int8(cpu.iAccumulator), // Go cast to signed 8-bit, then to int
+		cpu.iXIndex,
+		int8(cpu.iXIndex),
+		cpu.iYIndex,
+		int8(cpu.iYIndex),
+		flagChar(cpu.iStatus, F_NEGATIVE,  'N'),
+		flagChar(cpu.iStatus, F_OVERFLOW,  'V'),
+		flagChar(cpu.iStatus, F_BREAK,     'B'),
+		flagChar(cpu.iStatus, F_DECIMAL,   'D'),
+		flagChar(cpu.iStatus, F_INTERRUPT, 'I'),
+		flagChar(cpu.iStatus, F_ZERO,      'Z'),
+		flagChar(cpu.iStatus, F_CARRY,     'C'),
+	)
+}
+
+#include "constants.gh"
+
+
+/**
+ * Initialise the CPU with an AddressSpace
+ */
+func (cpu *MOS6502) Init(pSpace *AddressSpace) *MOS6502 {
+    cpu.pSpace   = pSpace
+    cpu.pOutside = unsafe.Pointer(pSpace)
+    cpu.Reset()
+    return cpu
+}
+
+func (cpu *MOS6502) Reset() *MOS6502 {
+    cpu.iProgramCounter = Address(cpu.pSpace[VEC_RES]) | (Address(cpu.pSpace[VEC_RES + 1]) << 8)
+    cpu.iAccumulator    = 0
+    cpu.iStatus         = F_INIT
+    cpu.iXIndex         = 0
+    cpu.iYIndex         = 0
+    cpu.iStackPointer   = Byte(STACK_TOP - STACK_BASE)
+    
+    return cpu
+}
+
+#include "run.gh"
+
+func (cpu *MOS6502) RunFrom(iAddress Address) *MOS6502 {
+    cpu.iProgramCounter = iAddress;
+    cpu.Run()
+    return cpu
+}
+
+#endif

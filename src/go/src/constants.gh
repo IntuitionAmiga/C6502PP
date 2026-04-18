@@ -1,0 +1,488 @@
+#ifndef _CONSTANTS_GH_
+#define _CONSTANTS_GH_
+
+// Addresses
+const (
+    VEC_RES    Address = 0xFFFC
+    VEC_IRQ    Address = 0xFFFE
+    PAGE_SIZE  Word    = 0x0100
+    STACK_BASE Address = 0x0100
+    STACK_TOP  Address = 0x01FF
+)
+
+// Flags
+const (
+    F_CARRY     Byte = 1
+    F_ZERO      Byte = 2
+    F_INTERRUPT Byte = 4
+	F_DECIMAL   Byte = 8
+    F_BREAK     Byte = 16
+    F_UNUSED    Byte = 32
+    F_OVERFLOW  Byte = 64
+    F_NEGATIVE  Byte = 128
+
+    // Masks
+    F_INIT      Byte = F_INTERRUPT | F_UNUSED | F_ZERO
+    F_CLR_NZCV  Byte = ^(F_NEGATIVE | F_ZERO | F_CARRY | F_OVERFLOW)
+    F_CLR_NZC   Byte = ^(F_NEGATIVE | F_ZERO | F_CARRY)
+    F_CLR_NZV   Byte = ^(F_NEGATIVE | F_ZERO | F_OVERFLOW)
+    F_CLR_NZ    Byte = ^(F_NEGATIVE | F_ZERO)
+)
+
+// Opcodes
+const (
+	// ADC - ADd with Carry - Affects N V Z C
+	ADC_IM  Byte = 0x69 // Immediate
+	ADC_ZP  Byte = 0x65 // Zero Page
+	ADC_ZPX Byte = 0x75 // Zero Page,X
+	ADC_AB  Byte = 0x6D // Absolute
+	ADC_ABX Byte = 0x7D // Absolute,X
+	ADC_ABY Byte = 0x79 // Absolute,Y
+	ADC_IX  Byte = 0x61 // Indirect,X
+	ADC_IY  Byte = 0x71 // Indirect,Y
+
+	// AND - Bitwise AND with accumylator - Affects N Z
+	AND_IM  Byte = 0x29 // Immediate
+	AND_ZP  Byte = 0x25 // Zero Page
+	AND_ZPX Byte = 0x35 // Zero Page,X
+	AND_AB  Byte = 0x2D // Absolute
+	AND_ABX Byte = 0x3D // Absolute,X
+	AND_ABY Byte = 0x39 // Absolute,Y
+	AND_IX  Byte = 0x21 // Indirect,X
+	AND_IY  Byte = 0x31 // Indirect,Y
+
+	// ASL - Arithmetic Shift Left - Affects N Z C
+	ASL_A   Byte = 0x0A // Accumulator
+	ASL_ZP  Byte = 0x06 // Zero Page
+	ASL_ZPX Byte = 0x16 // Zero Page,X
+	ASL_AB  Byte = 0x0E // Absolute
+	ASL_ABX Byte = 0x1E // Absolute,X
+
+	// BCC - Branch on Carry Clear
+	BCC     Byte = 0x90
+
+	// BCS - Branch on Carry Set
+	BCS     Byte = 0xB0
+
+	// BEQ - Branch on Result Zero
+	BEQ     Byte = 0xF0
+
+	// BIT - Test bit with accumulator
+	BIT_ZP  Byte = 0x24 // Zero Page
+	BIT_AB  Byte = 0x2C // Absolute
+
+	// BMI - Branch on result minus
+	BMI     Byte = 0x30
+
+	// BNE - Branch on result not zero
+	BNE     Byte = 0xD0
+
+	// BPL - Branch on result plus
+	BPL     Byte = 0x10
+
+	// BRK - Force break
+	BRK     Byte = 0x00
+
+	// BVC - Branch on overflow clear
+	BVC     Byte = 0x50
+
+	// BVS - Branch on overflow set
+	BVS     Byte = 0x70
+
+	// CLC - Clear Carry Flag
+	CLC     Byte = 0x18
+
+	// CLD - Clear Decimal Mode
+	CLD     Byte = 0xD8
+
+	// CLI - Clear Interrupt Disable Bit
+	CLI     Byte = 0x58
+
+	// CLV - Clear Overflow Flag
+	CLV     Byte = 0xB8
+
+	// CMP - Compare Memory with Accumulator
+	CMP_IM  Byte = 0xC9 // Immediate
+	CMP_ZP  Byte = 0xC5 // Zero Page
+	CMP_ZPX Byte = 0xD5 // Zero Page,X
+	CMP_AB  Byte = 0xCD // Absolute
+	CMP_ABX Byte = 0xDD // Absolute,X
+	CMP_ABY Byte = 0xD9 // Absolute,Y
+	CMP_IX  Byte = 0xC1 // Indirect,X
+	CMP_IY  Byte = 0xD1 // Indirect,Y
+
+	// CPX - Compare Memory and Index X
+	CPX_IM  Byte = 0xE0 // Immediate
+	CPX_ZP  Byte = 0xE4 // Zero Page
+	CPX_AB  Byte = 0xEC // Absolute
+
+	// CPY - Compare Memory and Index Y
+	CPY_IM  Byte = 0xC0 // Immediate
+	CPY_ZP  Byte = 0xC4 // Zero Page
+	CPY_AB  Byte = 0xCC // Absolute
+
+	// DEC - Decrement Memory by One
+	DEC_ZP  Byte = 0xC6 // Zero Page
+	DEC_ZPX Byte = 0xD6 // Zero Page,
+	DEC_AB  Byte = 0xCE // Absolute
+	DEC_ABX Byte = 0xDE // Absolute,
+
+	// DEX - Decrement Index X by One
+	DEX     Byte = 0xCA
+
+	// DEY - Decrement Index Y by One
+	DEY     Byte = 0x88
+
+	// EOR - Exclusive-OR Memory with Accumulator
+	EOR_IM  Byte = 0x49 // Immediate
+	EOR_ZP  Byte = 0x45 // Zero Page
+	EOR_ZPX Byte = 0x55 // Zero Page,X
+	EOR_AB  Byte = 0x4D // Absolute
+	EOR_ABX Byte = 0x5D // Absolute,X
+	EOR_ABY Byte = 0x59 // Absolute,Y
+	EOR_IX  Byte = 0x41 // Indirect,X
+	EOR_IY  Byte = 0x51 // Indirect,Y
+
+	// INC - Increment Memory by One
+	INC_ZP  Byte = 0xE6 // Zero Page
+	INC_ZPX Byte = 0xF6 // Zero Page,X
+	INC_AB  Byte = 0xEE // Absolute
+	INC_ABX Byte = 0xFE // Absolute,X
+
+	// INX - Increment Index X by One
+	INX     Byte = 0xE8
+
+	// INY - Increment Index Y by One
+	INY     Byte = 0xC8
+
+	// JMP - Jump to New Location
+	JMP_AB  Byte = 0x4C
+	JMP_IN  Byte = 0x6C
+
+	// JSR - Jump to New Location Saving Return Address
+	JSR_AB  Byte = 0x20 // Absolute
+
+	// LDA - Load Accumulator with Memory
+	LDA_IM  Byte = 0xA9 // Immediate
+	LDA_ZP  Byte = 0xA5 // Zero Page
+	LDA_ZPX Byte = 0xB5 // Zero Page,X
+	LDA_AB  Byte = 0xAD // Absolute
+	LDA_ABX Byte = 0xBD // Absolute,X
+	LDA_ABY Byte = 0xB9 // Absolute,Y
+	LDA_IX  Byte = 0xA1 // Indirect,X
+	LDA_IY  Byte = 0xB1 // Indirect,Y
+
+	// LDX - Load Index X with Memory
+	LDX_IM  Byte = 0xA2 // Immediate
+	LDX_ZP  Byte = 0xA6 // Zero Page
+	LDX_ZPY Byte = 0xB6 // Zero Page,Y
+	LDX_AB  Byte = 0xAE // Absolute
+	LDX_ABY Byte = 0xBE // Absolute,Y
+
+	// LDY - Load Index Y with Memory
+	LDY_IM  Byte = 0xA0 // Immediate
+	LDY_ZP  Byte = 0xA4 // Zero Page
+	LDY_ZPX Byte = 0xB4 // Zero Page,X
+	LDY_AB  Byte = 0xAC // Absolute
+	LDY_ABX Byte = 0xBC // Absolute,X
+
+	// LSR - Shift One Bit Right (Memory or Accumulator)
+	LSR_A   Byte = 0x4A // Accumulator
+	LSR_ZP  Byte = 0x46 // Zero Page
+	LSR_ZPX Byte = 0x56 // Zero Page,X
+	LSR_AB  Byte = 0x4E // Absolute
+	LSR_ABX Byte = 0x5E // Absolute,X
+
+	// NOP - No Operation
+	NOP     Byte = 0xEA
+
+	// ORA - OR Memory with Accumulator
+	ORA_IM  Byte = 0x09 // Immediate
+	ORA_ZP  Byte = 0x05 // Zero Page
+	ORA_ZPX Byte = 0x15 // Zero Page,X
+	ORA_AB  Byte = 0x0D // Absolute
+	ORA_ABX Byte = 0x1D // Absolute,X
+	ORA_ABY Byte = 0x19 // Absolute,Y
+	ORA_IX  Byte = 0x01 // Indirect,X
+	ORA_IY  Byte = 0x11 // Indirect,Y
+
+
+	// PHA - Push Accumulator on Stack
+	PHA     Byte = 0x48
+
+	// PHP - Push Processor Status on Stack
+	PHP     Byte = 0x08
+
+	// PLA - Pull Accumulator from Stack
+	PLA     Byte = 0x68
+
+	// PLP - Pull Processor Status from Stack
+	PLP     Byte = 0x28
+
+	// ROL - Rotate One Bit Left (Memory or Accumulator)
+	ROL_A   Byte = 0x2A // Accumulator
+	ROL_ZP  Byte = 0x26 // Zero Page
+	ROL_ZPX Byte = 0x36 // Zero Page,X
+	ROL_AB  Byte = 0x2E // Absolute
+	ROL_ABX Byte = 0x3E // Absolute,X
+
+	// ROR - Rotate One Bit Right (Memory or Accumulator)
+	ROR_A   Byte = 0x6A // Accumulator
+	ROR_ZP  Byte = 0x66 // Zero Page
+	ROR_ZPX Byte = 0x76 // Zero Page,X
+	ROR_AB  Byte = 0x6E // Absolute
+	ROR_ABX Byte = 0x7E // Absolute,X
+
+	// RTI - Return from Interrupt
+	RTI     Byte = 0x40
+
+	// RTS - Return from Subroutine
+	RTS     Byte = 0x60
+
+	// SBC - Subtract Memory from Accumulator with Borrow
+	SBC_IM  Byte = 0xE9 // Immediate
+	SBC_ZP  Byte = 0xE5 // Zero Page
+	SBC_ZPX Byte = 0xF5 // Zero Page,X
+	SBC_AB  Byte = 0xED // Absolute
+	SBC_ABX Byte = 0xFD // Absolute,X
+	SBC_ABY Byte = 0xF9 // Absolute,Y
+	SBC_IX  Byte = 0xE1 // Indirect,X
+	SBC_IY  Byte = 0xF1 // Indirect,Y
+
+	// SEC - Set Carry Flag
+	SEC     Byte = 0x38
+
+	// SED - Set Decimal Flag
+	SED     Byte = 0xF8
+
+	// SEI - Set Interrupt Disable Status
+	SEI     Byte = 0x78
+
+	// STA - Store Accumulator in Memory
+	STA_ZP  Byte = 0x85 // Zero Page
+	STA_ZPX Byte = 0x95 // Zero Page,X
+	STA_AB  Byte = 0x8D // Absolute
+	STA_ABX Byte = 0x9D // Absolute,X
+	STA_ABY Byte = 0x99 // Absolute,Y
+	STA_IX  Byte = 0x81 // Indirect,X
+	STA_IY  Byte = 0x91 // Indirect,Y
+
+	// STX - Store Index X in Memory
+	STX_ZP  Byte = 0x86 // Zero Page
+	STX_ZPY Byte = 0x96 // Zero Page,Y
+	STX_AB  Byte = 0x8E // Absolute
+
+	// STY - Store Index Y in Memory
+	STY_ZP  Byte = 0x84 // Zero Page
+	STY_ZPX Byte = 0x94 // Zero Page,Y
+	STY_AB  Byte = 0x8C // Absolute
+
+	// TAX - Transfer Accumulator to Index X
+	TAX     Byte = 0xAA
+
+	// TAY - Transfer Accumulator to Index Y
+	TAY     Byte = 0xA8
+
+	// TSX - Transfer Stack Pointer to Index X
+	TSX     Byte = 0xBA
+
+	// TXA - Transfer Index X to Accumulator
+	TXA     Byte = 0x8A
+
+	// TXS - Transfer Index X to Stack Register
+	TXS     Byte = 0x9A
+
+	// TYA - Transfer Index Y to Accumulator
+	TYA     Byte = 0x98
+
+)
+
+const (
+	SIZE_ADC_IM  = 2 // Immediate
+	SIZE_ADC_ZP  = 2 // Zero Page
+	SIZE_ADC_ZPX = 2 // Zero Page,X
+	SIZE_ADC_AB  = 3 // Absolute
+	SIZE_ADC_ABX = 3 // Absolute,X
+	SIZE_ADC_ABY = 3 // Absolute,Y
+	SIZE_ADC_IX  = 2 // Indirect,X
+	SIZE_ADC_IY  = 2 // Indirect,Y
+
+	SIZE_AND_IM  = 2 // Immediate
+	SIZE_AND_ZP  = 2 // Zero Page
+	SIZE_AND_ZPX = 2 // Zero Page,X
+	SIZE_AND_AB  = 3 // Absolute
+	SIZE_AND_ABX = 3 // Absolute,X
+	SIZE_AND_ABY = 3 // Absolute,Y
+	SIZE_AND_IX  = 2 // Indirect,X
+	SIZE_AND_IY  = 2 // Indirect,Y
+
+	SIZE_ASL_A   = 1 // Accumulator
+	SIZE_ASL_ZP  = 2 // Zero Page
+	SIZE_ASL_ZPX = 2 // Zero Page,X
+	SIZE_ASL_AB  = 3 // Absolute
+	SIZE_ASL_ABX = 3 // Absolute,X
+
+    SIZE_BRANCH  = 2
+	SIZE_BCC     = 2
+	SIZE_BCS     = 2
+	SIZE_BEQ     = 2
+
+	SIZE_BIT_ZP  = 2 // Zero Page
+	SIZE_BIT_AB  = 3 // Absolute
+
+	SIZE_BMI     = 2
+	SIZE_BNE     = 2
+	SIZE_BPL     = 2
+	SIZE_BRK     = 1
+	SIZE_BVC     = 2
+	SIZE_BVS     = 2
+
+	SIZE_CLC     = 1
+	SIZE_CLD     = 1
+	SIZE_CLI     = 1
+	SIZE_CLV     = 1
+
+	SIZE_CMP_IM  = 2 // Immediate
+	SIZE_CMP_ZP  = 2 // Zero Page
+	SIZE_CMP_ZPX = 2 // Zero Page,X
+	SIZE_CMP_AB  = 3 // Absolute
+	SIZE_CMP_ABX = 3 // Absolute,X
+	SIZE_CMP_ABY = 3 // Absolute,Y
+	SIZE_CMP_IX  = 2 // Indirect,X
+	SIZE_CMP_IY  = 2 // Indirect,Y
+
+	SIZE_CPX_IM  = 2 // Immediate
+	SIZE_CPX_ZP  = 2 // Zero Page
+	SIZE_CPX_AB  = 3 // Absolute
+
+	SIZE_CPY_IM  = 2 // Immediate
+	SIZE_CPY_ZP  = 2 // Zero Page
+	SIZE_CPY_AB  = 3 // Absolute
+
+	SIZE_DEC_ZP  = 2 // Zero Page
+	SIZE_DEC_ZPX = 2 // Zero Page,X
+	SIZE_DEC_AB  = 3 // Absolute
+	SIZE_DEC_ABX = 3 // Absolute,X
+
+	SIZE_DEX     = 1
+	SIZE_DEY     = 1
+
+	SIZE_EOR_IM  = 2 // Immediate
+	SIZE_EOR_ZP  = 2 // Zero Page
+	SIZE_EOR_ZPX = 2 // Zero Page,X
+	SIZE_EOR_AB  = 3 // Absolute
+	SIZE_EOR_ABX = 3 // Absolute,X
+	SIZE_EOR_ABY = 3 // Absolute,Y
+	SIZE_EOR_IX  = 2 // Indirect,X
+	SIZE_EOR_IY  = 2 // Indirect,Y
+
+	SIZE_INC_ZP  = 2 // Zero Page
+	SIZE_INC_ZPX = 2 // Zero Page,X
+	SIZE_INC_AB  = 3 // Absolute
+	SIZE_INC_ABX = 3 // Absolute,X
+
+	SIZE_INX     = 1
+	SIZE_INY     = 1
+
+	SIZE_JMP_AB  = 3
+	SIZE_JMP_IN  = 3
+
+	SIZE_JSR_AB  = 3
+
+	SIZE_LDA_IM  = 2 // Immediate
+	SIZE_LDA_ZP  = 2 // Zero Page
+	SIZE_LDA_ZPX = 2 // Zero Page,X
+	SIZE_LDA_AB  = 3 // Absolute
+	SIZE_LDA_ABX = 3 // Absolute,X
+	SIZE_LDA_ABY = 3 // Absolute,Y
+	SIZE_LDA_IX  = 2 // Indirect,X
+	SIZE_LDA_IY  = 2 // Indirect,Y
+
+	SIZE_LDX_IM  = 2 // Immediate
+	SIZE_LDX_ZP  = 2 // Zero Page
+	SIZE_LDX_ZPY = 2 // Zero Page,Y
+	SIZE_LDX_AB  = 3 // Absolute
+	SIZE_LDX_ABY = 3 // Absolute,Y
+
+	SIZE_LDY_IM  = 2 // Immediate
+	SIZE_LDY_ZP  = 2 // Zero Page
+	SIZE_LDY_ZPX = 2 // Zero Page,X
+	SIZE_LDY_AB  = 3 // Absolute
+	SIZE_LDY_ABX = 3 // Absolute,X
+
+	SIZE_LSR_A   = 1 // Accumulator
+	SIZE_LSR_ZP  = 2 // Zero Page
+	SIZE_LSR_ZPX = 2 // Zero Page,X
+	SIZE_LSR_AB  = 3 // Absolute
+	SIZE_LSR_ABX = 3 // Absolute,X
+
+	SIZE_NOP     = 1
+
+	SIZE_ORA_IM  = 2 // Immediate
+	SIZE_ORA_ZP  = 2 // Zero Page
+	SIZE_ORA_ZPX = 2 // Zero Page,X
+	SIZE_ORA_AB  = 3 // Absolute
+	SIZE_ORA_ABX = 3 // Absolute,X
+	SIZE_ORA_ABY = 3 // Absolute,Y
+	SIZE_ORA_IX  = 2 // Indirect,X
+	SIZE_ORA_IY  = 2 // Indirect,Y
+
+	SIZE_PHA     = 1
+	SIZE_PHP     = 1
+
+	SIZE_PLA     = 1
+	SIZE_PLP     = 1
+
+	SIZE_ROL_A   = 1 // Accumulator
+	SIZE_ROL_ZP  = 2 // Zero Page
+	SIZE_ROL_ZPX = 2 // Zero Page,X
+	SIZE_ROL_AB  = 3 // Absolute
+	SIZE_ROL_ABX = 3 // Absolute,X
+
+	SIZE_ROR_A   = 1 // Accumulator
+	SIZE_ROR_ZP  = 2 // Zero Page
+	SIZE_ROR_ZPX = 2 // Zero Page,X
+	SIZE_ROR_AB  = 3 // Absolute
+	SIZE_ROR_ABX = 3 // Absolute,X
+
+	SIZE_RTI     = 1
+	SIZE_RTS     = 1
+
+	SIZE_SBC_IM  = 2 // Immediate
+	SIZE_SBC_ZP  = 2 // Zero Page
+	SIZE_SBC_ZPX = 2 // Zero Page,X
+	SIZE_SBC_AB  = 3 // Absolute
+	SIZE_SBC_ABX = 3 // Absolute,X
+	SIZE_SBC_ABY = 3 // Absolute,Y
+	SIZE_SBC_IX  = 2 // Indirect,X
+	SIZE_SBC_IY  = 2 // Indirect,Y
+
+	SIZE_SEC     = 1
+	SIZE_SED     = 1
+	SIZE_SEI     = 1
+
+	SIZE_STA_ZP  = 2 // Zero Page
+	SIZE_STA_ZPX = 2 // Zero Page,X
+	SIZE_STA_AB  = 3 // Absolute
+	SIZE_STA_ABX = 3 // Absolute,X
+	SIZE_STA_ABY = 3 // Absolute,Y
+	SIZE_STA_IX  = 2 // Indirect,X
+	SIZE_STA_IY  = 2 // Indirect,Y
+
+	SIZE_STX_ZP  = 2 // Zero Page
+	SIZE_STX_ZPY = 2 // Zero Page,Y
+	SIZE_STX_AB  = 3 // Absolute
+
+	SIZE_STY_ZP  = 2 // Zero Page
+	SIZE_STY_ZPX = 2 // Zero Page,Y
+	SIZE_STY_AB  = 3 // Absolute
+
+	SIZE_TAX     = 1
+	SIZE_TAY     = 1
+	SIZE_TSX     = 1
+	SIZE_TXA     = 1
+	SIZE_TXS     = 1
+	SIZE_TYA     = 1
+)
+
+#endif

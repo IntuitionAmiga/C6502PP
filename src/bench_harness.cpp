@@ -6,9 +6,6 @@
 
 using namespace C6502PP;
 
-// We need a way to reset all registers that MOS6502 doesn't expose as setters.
-// But we can use hardReset() then set the entry point PC.
-
 int main(int argc, char* argv[]) {
     if (argc < 4) {
         std::cerr << "Usage: " << argv[0] << " <bin_file> <instr_per_op> <seconds>" << std::endl;
@@ -31,11 +28,12 @@ int main(int argc, char* argv[]) {
     auto tStart = std::chrono::high_resolution_clock::now();
     auto tDeadline = tStart + std::chrono::seconds(seconds);
     
-    // Benchmark Loop: Reset and run for the specified time
+    // Benchmark Loop: Reset and run for the specified time.
+    // runFrom() executes until the JAM/illegal-op exit, so a second run()
+    // would re-dispatch the terminating opcode and inflate wall-clock time
+    // without increasing totalOps, understating MIPS.
     while (std::chrono::high_resolution_clock::now() < tDeadline) {
         system.runFrom(0x0600);
-        // system.run() stops at JAM (0x02)
-        system.run();
         totalOps++;
     }
 

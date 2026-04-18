@@ -1,0 +1,1315 @@
+#ifndef _RUN_GH_
+#   define _RUN_GH_
+#   include "macros.gh"
+
+/**
+ * Add byte, carry and accumulator using BCD semantics.
+ * Immediate result is allowed to overflow the normal byte range so that we can
+ * use bit 8 as the overflow.
+ */
+func addBCDWithCarry(iValue Byte, iAccumulator Byte, iStatus Byte) Word {
+    // Nybbles
+    iSumL := Word(iAccumulator & 0x0F) + Word(iValue & 0x0F) + Word(iStatus & F_CARRY)
+    iSumH := Word(iAccumulator & 0xF0) + Word(iValue & 0xF0)
+
+    if iSumL > 0x09 {
+        iSumH += 0x10
+        iSumL += 0x06
+    }
+    if iSumH > 0x90 {
+        iSumH += 0x60
+    }
+    return (iSumH & 0x1F0) | (iSumL & 0x0F)
+}
+
+/**
+ * Subtract byte and carry from the accumulator, using BCD semantics
+ * Immediate result is allowed to underflow the normal byte range so that we can
+ * use bit 8 as the underflow.
+ */
+func subBCDWithCarry(iValue Byte, iAccumulator Byte, iStatus Byte) Word {
+    // Nybbles
+    iDiffL := Word(iAccumulator & 0x0F) - Word(iValue & 0x0F) - Word((^iStatus) & F_CARRY)
+    iDiffH := Word(iAccumulator & 0xF0) - Word(iValue & 0xF0)
+
+    if 0 != iDiffL & 0x10 {
+        iDiffL -= 0x06
+        iDiffH--
+    }
+    if 0 != iDiffH & 0x0100 {
+        iDiffH -= 0x60
+    }
+    return (iDiffH & 0x1F0) | (iDiffL & 0x0F)
+}
+
+/**
+ * You are ruining my beautiful language!
+ */
+func (cpu *MOS6502) Run() *MOS6502 {
+
+    // Pin all the things
+    pOutside := cpu.pOutside
+    iProgramCounter := cpu.iProgramCounter
+    iAccumulator := cpu.iAccumulator
+    iStatus := cpu.iStatus
+    pinX()
+    pinY()
+    pinS()
+ 
+    var iAddress Address // For address temporaries
+    var iData    Byte    // For data temporaries
+    begin() {
+    
+        // Load Accumulator
+        handle(LDA_IM) {
+            load(im(), iAccumulator)
+            updateNZ(iAccumulator)
+            size(LDA_IM)
+            dispatch()
+        }
+
+        handle(LDA_ZP) {
+            load(zp(), iAccumulator)
+            updateNZ(iAccumulator)
+            size(LDA_ZP)
+            dispatch()
+        }
+
+        handle(LDA_ZPX) {
+            load(zpx(), iAccumulator)
+            updateNZ(iAccumulator) 
+            size(LDA_ZPX)
+            dispatch()
+        }
+
+        handle(LDA_AB) {
+            load(ab(), iAccumulator)
+            updateNZ(iAccumulator)
+            size(LDA_AB)
+            dispatch()
+        }
+
+        handle(LDA_ABX) {
+            load(abx(), iAccumulator)
+            updateNZ(iAccumulator)
+            size(LDA_ABX)
+            dispatch()
+        }
+
+        handle(LDA_ABY) {
+            load(aby(), iAccumulator)
+            updateNZ(iAccumulator)
+            size(LDA_ABY)
+            dispatch()
+        }
+
+        handle(LDA_IX) {
+            load(ix(), iAccumulator)
+            updateNZ(iAccumulator)
+            size(LDA_IX)
+            dispatch()
+        }
+
+        handle(LDA_IY) {
+            load(iy(), iAccumulator)
+            updateNZ(iAccumulator)
+            size(LDA_IY)
+            dispatch()
+        }
+
+
+        // Store Accumulator
+        handle(STA_ZP) {
+            store(zp(),  iAccumulator)
+            size(STA_ZP)
+            dispatch()
+        }
+
+        handle(STA_ZPX) {
+            store(zpx(), iAccumulator)
+            size(STA_ZPX)
+            dispatch()
+        }
+
+        handle(STA_AB) {
+            store(ab(),  iAccumulator)
+            size(STA_AB)
+            dispatch()
+        }
+
+        handle(STA_ABX) {
+            store(abx(), iAccumulator)
+            size(STA_ABX)
+            dispatch()
+        }
+
+        handle(STA_ABY) {
+            store(aby(), iAccumulator)
+            size(STA_ABY)
+            dispatch()
+        }
+
+        handle(STA_IX) {
+            store(ix(),  iAccumulator)
+            size(STA_IX)
+            dispatch()
+        }
+
+        handle(STA_IY) {
+            store(iy(), iAccumulator)
+            size(STA_IY)
+            dispatch()
+        }
+
+        // Load X
+        handle(LDX_IM) {
+            load(im(), XREG)
+            updateNZ(XREG) 
+            size(LDX_IM)
+            dispatch()
+        }
+
+        handle(LDX_ZP) {
+            load(zp(), XREG)
+            updateNZ(XREG)
+            size(LDX_ZP)
+            dispatch()
+        }
+
+        handle(LDX_ZPY) {
+            load(zpy(), XREG)
+            updateNZ(XREG)
+            size(LDX_ZPY)
+            dispatch()
+        }
+
+        handle(LDX_AB) {
+            load(ab(), XREG)
+            updateNZ(XREG)
+            size(LDX_AB)
+            dispatch()
+        }
+
+        handle(LDX_ABY) {
+            load(aby(), XREG)
+            updateNZ(XREG)
+            size(LDX_ABY)
+            dispatch()
+        }
+
+        // Store X
+        handle(STX_ZP) {
+            store(zp(),  XREG)
+            size(STX_ZP)
+            dispatch()
+        }
+
+        handle(STX_ZPY) {
+            store(zpy(), XREG)
+            size(STX_ZPY)
+            dispatch()
+        }
+
+        handle(STX_AB) {
+            store(ab(),  XREG)
+            size(STX_AB)
+            dispatch()
+        }
+
+        // Load Y
+        handle(LDY_IM) {
+            load(im(), YREG)
+            updateNZ(YREG)
+            size(LDY_IM)
+            dispatch()
+        }
+
+        handle(LDY_ZP) {
+            load(zp(), YREG)
+            updateNZ(YREG)
+            size(LDY_ZP)
+            dispatch()
+        }
+
+        handle(LDY_ZPX) {
+            load(zpx(), YREG)
+            updateNZ(YREG)
+            size(LDY_ZPX)
+            dispatch()
+        }
+
+        handle(LDY_AB) {
+            load(ab(), YREG)
+            updateNZ(YREG)
+            size(LDY_AB)
+            dispatch()
+        }
+
+        handle(LDY_ABX) {
+            load(abx(), YREG)
+            updateNZ(YREG)
+            size(LDY_ABX)
+            dispatch()
+        }
+
+        // Store Y
+        handle(STY_ZP) {
+            store(zp(),  YREG)
+            size(STY_ZP)
+            dispatch()
+        }
+
+        handle(STY_ZPX) {
+            store(zpx(), YREG)
+            size(STY_ZPX)
+            dispatch()
+        }
+
+        handle(STY_AB) {
+            store(ab(),  YREG)
+            size(STY_AB)
+            dispatch()
+        }
+
+	    	    
+        // Compare
+        // A - M
+        handle(CMP_IM) {
+            load(im(), iData)
+            cmpByte(iAccumulator, iData)
+            size(CMP_IM)
+            dispatch()
+        }
+	    	    
+	    
+        handle(CMP_ZP) {
+            load(zp(), iData)
+            cmpByte(iAccumulator, iData)
+            size(CMP_ZP)
+            dispatch()
+        }
+
+        handle(CMP_ZPX) {
+            load(zpx(), iData)
+            cmpByte(iAccumulator, iData)
+            size(CMP_ZPX)
+            dispatch()
+        }
+
+        handle(CMP_AB) {
+            load(ab(), iData)
+            cmpByte(iAccumulator, iData)
+            size(CMP_AB)
+            dispatch()
+        }
+
+        handle(CMP_ABX) {
+            load(abx(), iData)
+            cmpByte(iAccumulator, iData)
+            size(CMP_ABX)
+            dispatch()
+        }
+
+        handle(CMP_ABY) {
+            load(aby(), iData)
+            cmpByte(iAccumulator, iData)
+            size(CMP_ABY)
+            dispatch()
+        }
+
+        handle(CMP_IX) {
+            load(ix(), iData)
+            cmpByte(iAccumulator, iData)
+            size(CMP_IX)
+            dispatch()
+        }
+
+        handle(CMP_IY) {
+            load(iy(), iData)
+            cmpByte(iAccumulator, iData)
+            size(CMP_IY)
+            dispatch()
+        }
+
+        handle(CPX_IM) {
+            load(im(), iData)
+            cmpByte(XREG, iData)
+            size(CPX_IM)
+            dispatch()
+        }
+
+        handle(CPX_ZP) {
+            load(zp(), iData)
+            cmpByte(XREG, iData)
+            size(CPX_ZP)
+            dispatch()
+        }
+
+        handle(CPX_AB) {
+            load(ab(), iData)
+            cmpByte(XREG, iData)
+            size(CPX_AB)
+            dispatch()
+        }
+
+        handle(CPY_IM) {
+            load(im(), iData)
+            cmpByte(YREG, iData)
+            size(CPY_IM)
+            dispatch()
+        }
+
+        handle(CPY_ZP) {
+            load(zp(), iData)
+            cmpByte(YREG, iData)
+            size(CPY_ZP)
+            dispatch()
+        }
+
+        handle(CPY_AB) {
+            load(ab(), iData)
+            cmpByte(YREG, iData)
+            size(CPY_AB)
+            dispatch()
+        }	
+
+        // Conditional Branching
+        handle(BCC) {
+            if 0 == iStatus & F_CARRY {
+                branch()
+            } else {
+                size(BCC)
+            }
+            dispatch()
+        }
+
+        handle(BCS) {
+            if F_CARRY == iStatus & F_CARRY {
+                branch()
+            } else {
+                size(BCS)
+            }
+            dispatch()
+        }
+            
+        handle(BEQ) {
+            if F_ZERO == iStatus & F_ZERO {
+                branch()
+            } else {
+                size(BEQ)
+            }
+            dispatch()
+        }
+
+        handle(BNE) {
+            if 0 == iStatus & F_ZERO {
+                branch()
+            } else {
+                size(BNE)
+            }
+            dispatch()
+        }
+
+        handle(BMI) {
+            if F_NEGATIVE == iStatus & F_NEGATIVE {
+                branch()
+            } else {
+                size(BMI)
+            }
+            dispatch()
+        }
+
+        handle(BPL) {
+            if 0 == iStatus & F_NEGATIVE {
+                branch()
+            } else {
+                size(BPL)
+            }
+            dispatch()
+        }
+
+        handle(BVC) {
+            if 0 == iStatus & F_OVERFLOW {
+                branch()
+            } else {
+                size(BVC)
+            }
+            dispatch()
+        }
+
+        handle(BVS) {
+            if F_OVERFLOW == iStatus & F_OVERFLOW {
+                branch()
+            } else {
+                size(BVS)
+            }
+            dispatch()
+        }
+
+	    handle(NOP) {
+            size(NOP)
+            dispatch()
+	    }
+
+        // Status mangling
+        handle(CLC) {
+            iStatus &= ^F_CARRY
+            size(CLC)
+            dispatch()
+        }
+
+        handle(CLD) {
+            iStatus &= ^F_DECIMAL
+            size(CLD)
+            dispatch()
+        }
+
+        handle(CLI) {
+            iStatus &= ^F_INTERRUPT
+            size(CLI)
+            dispatch()
+        }
+
+        handle(CLV) {
+            iStatus &= ^F_OVERFLOW
+            size(CLV)
+            dispatch()
+        }
+
+        handle(SEC) {
+            iStatus |= F_CARRY
+            size(SEC)
+            dispatch()
+        }
+
+        handle(SED) {
+            iStatus |= F_DECIMAL
+            size(SED)
+            dispatch()
+        }
+
+        handle(SEI) {
+            iStatus |= F_INTERRUPT
+            size(SEI)
+            dispatch()
+        }
+
+        // Register transfer
+        handle(TAX) {
+            XREG = iAccumulator
+            updateNZ(XREG)
+            size(TAX)
+            dispatch()
+        }
+
+        handle(TAY) {
+            YREG = iAccumulator
+            updateNZ(YREG);
+            size(TAY)
+            dispatch()
+        }
+
+        handle(TSX) {
+            XREG = SREG
+            updateNZ(XREG)
+            size(TSX)
+            dispatch()
+        }
+
+        handle(TXA) {
+            iAccumulator = XREG
+            updateNZ(iAccumulator)
+            size(TXA)
+            dispatch()
+        }
+
+        // klausd tests: TXS does not update NZ
+        handle(TXS) {
+            SREG = XREG
+            size(TXS)
+            dispatch()
+        }
+
+        handle(TYA) {
+            iAccumulator = YREG
+            updateNZ(iAccumulator)
+            size(TYA)
+            dispatch()
+        }
+
+        // Stack
+        handle(PHA) {
+            push(iAccumulator)
+            size(PHA)
+            dispatch()
+        }
+
+        handle(PHP) {
+            // PHP... SixPhphive02 Rides Again
+            iData = iStatus | F_BREAK | F_UNUSED 
+            push(iData)
+            size(PHP)
+            dispatch()
+        }
+
+        handle(PLA) {
+            pull(iAccumulator)
+            updateNZ(iAccumulator)
+            size(PLA)
+            dispatch()
+        }
+        
+        handle(PLP) {
+            pull(iData)
+            //iData &= ^(F_BREAK | F_UNUSED)
+            //iStatus = (iStatus & (F_BREAK | F_UNUSED)) | iData
+            iStatus = iData & ^(F_BREAK | F_UNUSED)
+            size(PLP)
+            dispatch()
+        }
+
+        // Decrement
+        handle(DEX) {
+            XREG--
+            updateNZ(XREG)
+            size(DEX)
+            dispatch()
+        }
+
+        handle(DEY) {
+            YREG--
+            updateNZ(YREG)
+            size(DEY)
+            dispatch()
+        }
+
+        handle(DEC_ZP) {
+            // load() sets iAddress
+            load(zp(), iData)
+            iData--
+            updateNZ(iData)
+            writeByte(iAddress, iData)
+            size(DEC_ZP)
+            dispatch()
+        }
+
+        handle(DEC_ZPX) {
+            // load() sets iAddress
+            load(zpx(), iData)
+            iData--
+            updateNZ(iData)
+            writeByte(iAddress, iData)
+            size(DEC_ZPX)
+            dispatch()
+        }
+
+        handle(DEC_AB) {
+            // load() sets iAddress
+            load(ab(), iData)
+            iData--
+            updateNZ(iData)
+            writeByte(iAddress, iData)
+            size(DEC_AB)
+            dispatch()
+        }
+
+        handle(DEC_ABX) {
+            // load() sets iAddress
+            load(abx(), iData)
+            iData--
+            updateNZ(iData)
+            writeByte(iAddress, iData)
+            size(DEC_ABX)
+            dispatch()
+        }
+
+        // Increment
+        handle(INX) {
+            XREG++
+            updateNZ(XREG)
+            size(INX)
+            dispatch()
+        }
+
+        handle(INY) {
+            YREG++
+            updateNZ(YREG)
+            size(INY)
+            dispatch()
+        }
+
+        handle(INC_ZP) {
+            // load() sets iAddress            
+            load(zp(), iData)
+            iData++
+            updateNZ(iData);
+            writeByte(iAddress, iData)
+            size(INC_ZP)
+            dispatch()
+        }
+
+        handle(INC_ZPX) {
+            // load() sets iAddress            
+            load(zpx(), iData)
+            iData++
+            updateNZ(iData)
+            writeByte(iAddress, iData)
+            size(INC_ZPX)
+            dispatch()
+        }
+
+        handle(INC_AB) {
+            // load() sets iAddress            
+            load(ab(), iData)
+            iData++
+            updateNZ(iData)
+            writeByte(iAddress, iData)
+            size(INC_AB)
+            dispatch()
+        }
+
+        handle(INC_ABX) {
+            // load() sets iAddress            
+            load(abx(), iData)
+            iData++
+            updateNZ(iData)
+            writeByte(iAddress, iData)
+            size(INC_ABX)
+            dispatch()
+        }
+
+        // Bitwise AND
+        handle(AND_IM) {
+            load(im(), iData)
+            iAccumulator &= iData
+            updateNZ(iAccumulator)
+            size(AND_IM)
+            dispatch()
+        }
+
+        handle(AND_ZP) {
+            load(zp(), iData)
+            iAccumulator &= iData
+            updateNZ(iAccumulator)
+            size(AND_ZP)
+            dispatch()
+        }
+
+        handle(AND_ZPX) {
+            load(zpx(), iData)
+            iAccumulator &= iData
+            updateNZ(iAccumulator)
+            size(AND_ZPX)
+            dispatch()
+        }
+
+        handle(AND_AB) {
+            load(ab(), iData)
+            iAccumulator &= iData
+            updateNZ(iAccumulator)
+            size(AND_AB)
+            dispatch()
+        }
+
+        handle(AND_ABX) {
+            load(abx(), iData)
+            iAccumulator &= iData
+            updateNZ(iAccumulator)
+            size(AND_ABX)
+            dispatch()
+        }
+
+        handle(AND_ABY) {
+            load(aby(), iData)
+            iAccumulator &= iData
+            updateNZ(iAccumulator)
+            size(AND_ABY)
+            dispatch()
+        }
+
+        handle(AND_IX) {
+            load(ix(), iData)
+            iAccumulator &= iData
+            updateNZ(iAccumulator)
+            size(AND_IX)
+            dispatch()
+        }
+
+        handle(AND_IY) {
+            load(iy(), iData)
+            iAccumulator &= iData
+            updateNZ(iAccumulator)
+            size(AND_IY)
+            dispatch()
+        }
+
+        // Bitwise OR
+        handle(ORA_IM) {
+            load(im(), iData)
+            iAccumulator |= iData
+            updateNZ(iAccumulator)
+            size(ORA_IM)
+            dispatch()
+        }
+
+        handle(ORA_ZP) {
+            load(zp(), iData)
+            iAccumulator |= iData
+            updateNZ(iAccumulator)
+            size(ORA_ZP)
+            dispatch()
+        }
+
+        handle(ORA_ZPX) {
+            load(zpx(), iData)
+            iAccumulator |= iData
+            updateNZ(iAccumulator)
+            size(ORA_ZPX)
+            dispatch()
+        }
+
+        handle(ORA_AB) {
+            load(ab(), iData)
+            iAccumulator |= iData
+            updateNZ(iAccumulator)
+            size(ORA_AB)
+            dispatch()
+        }
+
+        handle(ORA_ABX) {
+            load(abx(), iData)
+            iAccumulator |= iData
+            updateNZ(iAccumulator)
+            size(ORA_ABX)
+            dispatch()
+        }
+
+        handle(ORA_ABY) {
+            load(aby(), iData)
+            iAccumulator |= iData
+            updateNZ(iAccumulator)
+            size(ORA_ABY)
+            dispatch()
+        }
+
+        handle(ORA_IX) {
+            load(ix(), iData)
+            iAccumulator |= iData
+            updateNZ(iAccumulator)
+            size(ORA_IX)
+            dispatch()
+        }
+
+        handle(ORA_IY) {
+            load(iy(), iData)
+            iAccumulator |= iData
+            updateNZ(iAccumulator)
+            size(ORA_IY)
+            dispatch()
+        }
+
+        // Bitwise EOR
+        
+        handle(EOR_IM) {
+            load(im(), iData)
+            iAccumulator ^= iData
+            updateNZ(iAccumulator)
+            size(EOR_IM)
+            dispatch()
+        }
+
+        handle(EOR_ZP) {
+            load(zp(), iData)
+            iAccumulator ^= iData
+            updateNZ(iAccumulator)
+            size(EOR_ZP)
+            dispatch()
+        }
+
+        handle(EOR_ZPX) {
+            load(zpx(), iData)
+            iAccumulator ^= iData
+            updateNZ(iAccumulator)
+            size(EOR_ZPX)
+            dispatch()
+        }
+
+        handle(EOR_AB) {
+            load(ab(), iData)
+            iAccumulator ^= iData
+            updateNZ(iAccumulator)
+            size(EOR_AB)
+            dispatch()
+        }
+
+        handle(EOR_ABX) {
+            load(abx(), iData)
+            iAccumulator ^= iData
+            updateNZ(iAccumulator)
+            size(EOR_ABX)
+            dispatch()
+        }
+
+        handle(EOR_ABY) {
+            load(aby(), iData)
+            iAccumulator ^= iData
+            updateNZ(iAccumulator)
+            size(EOR_ABY)
+            dispatch()
+        }
+
+        handle(EOR_IX) {
+            load(ix(), iData)
+            iAccumulator ^= iData
+            updateNZ(iAccumulator)
+            size(EOR_IX)
+            dispatch()
+        }
+
+        handle(EOR_IY) {
+            load(iy(), iData)
+            iAccumulator ^= iData
+            updateNZ(iAccumulator)
+            size(EOR_IY)
+            dispatch()
+        }        
+        
+        // Unconditional
+        handle(JMP_AB) {
+            iAddress = readWord(iProgramCounter + 1)
+            if iAddress == iProgramCounter {
+                // HALT
+                hammerzeit()
+            }
+            iProgramCounter = iAddress
+            dispatch()
+        }
+
+        handle(JMP_IN) {
+            // Emulate the 6502 indirect jump bug with respect to page boundaries.
+            iAddress = readWord(iProgramCounter + 1)
+            if 0x00FF == (iAddress & 0x00FF) {
+                iProgramCounter  = Address(readByte(iAddress))
+                iProgramCounter |= (Address(readByte(iAddress & 0xFF00)) << 8)
+            } else {
+                iProgramCounter = readWord(iAddress)
+            }
+            dispatch()
+        }
+
+        handle(JSR_AB) {
+            // Note the 6502 notion of the return address is actually the address of the last byte of the operation.
+            iAddress = iProgramCounter + 2
+            push(Byte(iAddress >> 8))
+            push(Byte(iAddress & 0xFF))
+            iProgramCounter = readWord(iProgramCounter + 1)
+            dispatch()
+        }
+
+        handle(RTS) {
+            pull(iData)
+            iAddress  = Address(iData);
+            pull(iData)
+            iAddress |= (Address(iData) << 8)
+            iProgramCounter = iAddress + 1
+            dispatch()
+        }
+
+        // Logical shift right
+        handle(LSR_A) {
+            iStatus &= ^F_CARRY
+            iStatus |= (iAccumulator & F_CARRY)
+            iAccumulator >>= 1
+            updateNZ(iAccumulator)
+            size(LSR_A)
+            dispatch()
+        }
+
+
+        handle(LSR_ZP) {
+            lsrMemory(zp())
+            size(LSR_ZP)
+            dispatch()
+        }
+
+        handle(LSR_ZPX) {
+            lsrMemory(zpx())
+            size(LSR_ZPX)
+            dispatch()
+        }
+
+        handle(LSR_AB) {
+            lsrMemory(ab())
+            size(LSR_AB)
+            dispatch()
+        }
+
+        handle(LSR_ABX) {
+            lsrMemory(abx())
+            size(LSR_ABX)
+            dispatch()
+        }
+
+        // Arithmetuc shift left
+        handle(ASL_A) {
+            iStatus &= ^F_CARRY
+            iStatus |= ((iAccumulator & F_NEGATIVE) >> 7) // sign -> carry
+            iAccumulator <<= 1
+            updateNZ(iAccumulator)
+            size(ASL_A)
+            dispatch()
+        }
+
+        handle(ASL_ZP) {
+            aslMemory(zp())
+            size(ASL_ZP)
+            dispatch()
+        }
+
+        handle(ASL_ZPX) {
+            aslMemory(zpx())
+            size(ASL_ZPX)
+            dispatch()
+        }
+
+        handle(ASL_AB) {
+            aslMemory(ab())
+            size(ASL_AB)
+            dispatch()
+        }
+
+        handle(ASL_ABX) {
+            aslMemory(abx())
+            size(ASL_ABX)
+            dispatch()
+        }
+
+        handle(ROL_A) {
+            iData = (iStatus & F_CARRY)
+            iStatus &= ^F_CARRY
+            iStatus |= ((iAccumulator & F_NEGATIVE) >> 7)
+            iAccumulator = ((iAccumulator << 1) | iData)
+            updateNZ(iAccumulator)
+            size(ROL_A)
+            dispatch()
+        }
+
+        handle(ROL_ZP) {
+            rolMemory(zp())
+            size(ROL_ZP)
+            dispatch()
+        }
+
+        handle(ROL_ZPX) {
+            rolMemory(zpx())
+            size(ROL_ZPX)
+            dispatch()
+        }
+
+        handle(ROL_AB) {
+            rolMemory(ab())
+            size(ROL_AB)
+            dispatch()
+        }
+
+        handle(ROL_ABX) {
+            rolMemory(abx())
+            size(ROL_ABX)
+            dispatch()
+        }
+
+        handle(ROR_A) {
+            iData = ((iStatus & F_CARRY) << 7)
+            iStatus &= ^F_CARRY;
+            iStatus |= (iAccumulator & F_CARRY)
+            iAccumulator = ((iAccumulator >> 1) | iData)
+            updateNZ(iAccumulator)
+            size(ROR_A)
+            dispatch()
+        }
+
+        handle(ROR_ZP) {
+            rorMemory(zp())
+            size(ROR_ZP)
+            dispatch()
+        }
+
+        handle(ROR_ZPX) {
+            rorMemory(zpx())
+            size(ROR_ZPX)
+            dispatch()
+        }
+
+        handle(ROR_AB) {
+            rorMemory(ab())
+            size(ROR_AB)
+            dispatch()
+        }
+
+        handle(ROR_ABX) {
+            rorMemory(abx())
+            size(ROR_ABX)
+            dispatch()
+        }
+
+        handle(BIT_ZP) {
+            load(zp(), iData)
+            iStatus &= F_CLR_NZV
+            iStatus |= (iData & (F_NEGATIVE | F_OVERFLOW))
+            if 0 == iData & iAccumulator {
+                iStatus |= F_ZERO
+            }            
+            size(BIT_ZP)
+            dispatch()
+        }
+
+        handle(BIT_AB) {
+            load(ab(), iData)
+            iStatus &= F_CLR_NZV
+            iStatus |= (iData & (F_NEGATIVE|F_OVERFLOW))
+            if 0 == iData & iAccumulator {
+                iStatus |= F_ZERO
+            }
+            size(BIT_AB)
+            dispatch()
+        }
+
+
+        handle(RTI) {
+            // Pull SR but ignore bit 5
+            pull(iData)            
+            //iData &= ^(F_UNUSED|F_BREAK) // clear unused only
+            //iStatus &= (F_UNUSED|F_BREAK) // clear all but unused flag
+            //iStatus |= iData;
+            
+            iStatus = iData & ^(F_BREAK | F_UNUSED)
+            // PC
+            pull(iData)
+            iAddress  = Address(iData)
+            pull(iData)
+            iAddress |= (Address(iData) << 8)
+            iProgramCounter = iAddress
+            dispatch()
+        }
+
+        handle(BRK) {
+            // Push PC+2 as return address
+            //iValAddress    = iProgramCounter + 1;
+            iAddress = iProgramCounter + 2
+            push(Byte(iAddress >> 8))
+            push(Byte(iAddress & 0xFF))
+            
+            // Push SR
+            iData = iStatus|F_BREAK|F_UNUSED
+            push(iData);
+
+            // Reload PC from IRQ vector
+            iProgramCounter = readWord(VEC_IRQ);
+
+            // Set interrupted status. Is this the correct location?
+            iStatus |= F_INTERRUPT
+            dispatch()
+        }
+
+        // Addition
+        // A + M + C
+        handle(ADC_IM) {
+            load(im(), iData)
+            addByteWithCarry(iData)
+            size(ADC_IM)
+            dispatch()
+        }
+
+        handle(ADC_ZP) {
+            load(zp(), iData)
+            addByteWithCarry(iData)
+            size(ADC_ZP)
+            dispatch()
+        }
+
+        handle(ADC_ZPX) {
+            load(zpx(), iData)
+            addByteWithCarry(iData)
+            size(ADC_ZPX)
+            dispatch()
+        }
+
+        handle(ADC_AB) {
+            load(ab(), iData)
+            addByteWithCarry(iData)
+            size(ADC_AB)
+            dispatch()
+        }
+
+        handle(ADC_ABX) {
+            load(abx(), iData)
+            addByteWithCarry(iData)
+            size(ADC_ABX)
+            dispatch()
+        }
+
+        handle(ADC_ABY) {
+            load(aby(), iData)
+            addByteWithCarry(iData)
+            size(ADC_ABY)
+            dispatch()
+        }
+
+        handle(ADC_IX) {
+            load(ix(), iData)
+            addByteWithCarry(iData)
+            size(ADC_IX)
+            dispatch()
+        }
+
+        handle(ADC_IY) {
+            load(iy(), iData)
+            addByteWithCarry(iData)
+            size(ADC_IY)
+            dispatch()
+        }
+
+        // Subtract
+        // A - M - B => A + (255 - M) - (1 - C) => A + ~M + C
+        handle(SBC_IM) {
+            load(im(), iData)
+            subByteWithCarry(iData)
+            size(SBC_IM)
+            dispatch()
+        }
+
+        handle(SBC_ZP) {
+            load(zp(), iData)
+            subByteWithCarry(iData)
+            size(SBC_ZP)
+            dispatch()
+        }
+
+        handle(SBC_ZPX) {
+            load(zpx(), iData)
+            subByteWithCarry(iData)
+            size(SBC_ZPX)
+            dispatch()
+        }
+
+        handle(SBC_AB) {
+            load(ab(), iData)
+            subByteWithCarry(iData)
+            size(SBC_AB)
+            dispatch()
+        }
+
+        handle(SBC_ABX) {
+            load(abx(), iData)
+            subByteWithCarry(iData)
+            size(SBC_ABX)
+            dispatch()
+        }
+
+        handle(SBC_ABY) {
+            load(aby(), iData)
+            subByteWithCarry(iData)
+            size(SBC_ABY)
+            dispatch()
+        }
+
+        handle(SBC_IX) {
+            load(ix(), iData)
+            subByteWithCarry(iData)
+            size(SBC_IX)
+            dispatch()
+        }
+
+        handle(SBC_IY) {
+            load(iy(), iData)
+            subByteWithCarry(iData)
+            size(SBC_IY)
+            dispatch()
+        }
+
+/*        
+	    case 0x03: fallthrough
+	    case 0x13: fallthrough
+	    case 0x23: fallthrough
+	    case 0x33: fallthrough
+	    case 0x43: fallthrough
+	    case 0x53: fallthrough
+	    case 0x63: fallthrough
+	    case 0x73: fallthrough
+	    case 0x83: fallthrough
+	    case 0x93: fallthrough
+	    case 0xA3: fallthrough
+	    case 0xB3: fallthrough
+	    case 0xC3: fallthrough
+	    case 0xD3: fallthrough
+	    case 0xE3: fallthrough
+        case 0xF3: fallthrough
+
+	    case 0x07: fallthrough
+	    case 0x17: fallthrough
+	    case 0x27: fallthrough
+	    case 0x37: fallthrough
+	    case 0x47: fallthrough
+	    case 0x57: fallthrough
+	    case 0x67: fallthrough
+	    case 0x77: fallthrough
+	    case 0x87: fallthrough
+	    case 0x97: fallthrough
+	    case 0xA7: fallthrough
+	    case 0xB7: fallthrough
+	    case 0xC7: fallthrough
+	    case 0xD7: fallthrough
+	    case 0xE7: fallthrough
+        case 0xF7: fallthrough
+
+	    case 0x0B: fallthrough
+	    case 0x1B: fallthrough
+	    case 0x2B: fallthrough
+	    case 0x3B: fallthrough
+	    case 0x4B: fallthrough
+	    case 0x5B: fallthrough
+	    case 0x6B: fallthrough
+	    case 0x7B: fallthrough
+	    case 0x8B: fallthrough
+	    case 0x9B: fallthrough
+	    case 0xAB: fallthrough
+	    case 0xBB: fallthrough
+	    case 0xCB: fallthrough
+	    case 0xDB: fallthrough
+	    case 0xEB: fallthrough
+        case 0xFB: fallthrough
+
+	    case 0x0F: fallthrough
+	    case 0x1F: fallthrough
+	    case 0x2F: fallthrough
+	    case 0x3F: fallthrough
+	    case 0x4F: fallthrough
+	    case 0x5F: fallthrough
+	    case 0x6F: fallthrough
+	    case 0x7F: fallthrough
+	    case 0x8F: fallthrough
+	    case 0x9F: fallthrough
+	    case 0xAF: fallthrough
+	    case 0xBF: fallthrough
+	    case 0xCF: fallthrough
+	    case 0xDF: fallthrough
+	    case 0xEF: fallthrough
+        case 0xFF: fallthrough
+*/
+
+        illegal();
+    }
+    done()
+
+    // Restore
+    cpu.iProgramCounter = iProgramCounter
+    cpu.iAccumulator = iAccumulator
+    cpu.iStatus = iStatus
+    unpinX()
+    unpinY()
+    unpinS()
+    
+    return cpu
+}
+
+#endif

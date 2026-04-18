@@ -1,0 +1,208 @@
+#ifndef _MACROS_GH_
+#   define _MACROS_GH_
+
+#   ifdef PIN_ALL
+#       define XREG iXIndex
+#       define YREG iYIndex
+#       define SREG iStackPointer
+#       define pinX() iXIndex := cpu.iXIndex
+#       define pinY() iYIndex := cpu.iYIndex
+#       define pinS() iStackPointer := cpu.iStackPointer
+#       define unpinX() cpu.iXIndex = iXIndex
+#       define unpinY() cpu.iYIndex = iYIndex
+#       define unpinS() cpu.iStackPointer = iStackPointer
+#   else
+#       define XREG cpu.iXIndex
+#       define YREG cpu.iYIndex
+#       define SREG cpu.iStackPointer
+#       define pinX()
+#       define pinY()
+#       define pinS()
+#       define unpinX()
+#       define unpinY()
+#       define unpinS()
+#   endif
+
+/**
+ * You are ruining my beautiful language!
+ */
+
+#   define readByte(addr) (*(*Byte)(unsafe.Pointer(uintptr(pOutside) + uintptr(addr))))
+#   define writeByte(addr, val) *(*Byte)(unsafe.Pointer(uintptr(pOutside) + uintptr(addr))) = (Byte)(val)
+#   define readWord(addr) (Word(readByte(addr)) | (Word(readByte(addr + 1)) << 8))
+#   define readWordZP(addr) (Word(readByte(addr)) | (Word(readByte((addr + 1) & 0xFF)) << 8))
+#   define pull(target) SREG++; target = readByte(STACK_BASE + Address(SREG))
+#   define push(source) writeByte(STACK_BASE + Address(SREG), source); SREG--
+#   define branch() iProgramCounter = Address(int16(iProgramCounter) + int16(*(*int8)(unsafe.Pointer(uintptr(pOutside) + uintptr(iProgramCounter + 1))))) + SIZE_BRANCH
+
+
+// Addressing. Better hope common subexpression elimination works
+
+#   define im() { iAddress = iProgramCounter + 1 }
+
+/**
+ * $NN
+ */
+#   define zp() { iAddress = Address(readByte(iProgramCounter + 1)) }
+
+/**
+ * $NNNN
+ */
+#   define ab() { iAddress = Address(readWord(iProgramCounter + 1)) }
+
+/**
+ * $NNNN,X
+ */
+#   define abx() { iAddress = Address(readWord(iProgramCounter + 1)) + Address(XREG) }
+
+/**
+ * $NNNN,Y
+ */
+#   define aby() { iAddress = Address(readWord(iProgramCounter + 1)) + Address(YREG) }
+
+/**
+ * $NN,X (wraps in zero page)
+ */
+#   define zpx() { iAddress = Address (readByte(iProgramCounter + 1) + XREG) }
+
+/**
+ * $NN,Y (wraps in zero page)
+ */
+#   define zpy() { iAddress = Address (readByte(iProgramCounter + 1) + YREG) }
+
+/**
+ * ($NN,X) (wraps in zero page)
+ */
+#   define ix() { iAddress = (Address(readByte(iProgramCounter + 1)) + Address(XREG)) & 0xFF; iAddress = readWordZP(iAddress) }
+
+/**
+ * ($NN),Y
+ */
+#define iy() { iAddress = Address(readByte(iProgramCounter + 1)); iAddress = Address(readWordZP(iAddress)) + Address(YREG); }
+
+#   define begin() Interpreter: for { switch readByte(iProgramCounter)
+#   define done() }
+#   define handle(NAME) case NAME: 
+#   define dispatch()   continue
+#   define size(NAME) iProgramCounter += SIZE_##NAME
+#   define illegal() default: break Interpreter
+#   define hammerzeit() break Interpreter
+
+#   define load(mode, target)  { mode; target = readByte(iAddress) }
+#   define store(mode, source) { mode; writeByte(iAddress, source) }
+
+
+// ALU
+
+#define updateNZ(value) { \
+    iStatus &= F_CLR_NZ; \
+    if (value) == 0 { \
+        iStatus |= F_ZERO \
+    } else { \
+        iStatus |= (value & F_NEGATIVE) \
+    }; \
+}
+
+#define cmpByte(iTo, iValue) { \
+    iRes := iTo - iValue; \
+    iStatus &= F_CLR_NZC; \
+    if iRes == 0 { iStatus |= F_ZERO }; \
+    iStatus |= (iRes & F_NEGATIVE); \
+    if iTo >= iValue { iStatus |= F_CARRY }; \
+}
+
+#define shiftLeftWithCarry(iValue) { \
+    iStatus &= ^F_CARRY; \
+    iStatus |= (iValue & F_NEGATIVE) >> 7; \
+    iValue <<= 1; \
+    updateNZ(iValue); \
+}
+
+#define shiftRightWithCarry(iValue) { \
+    iStatus &= ^F_CARRY; \
+    iStatus |= (iValue & F_CARRY); \
+    iValue >>= 1; \
+    updateNZ(iValue); \
+}
+
+#define lsrMemory(mode) { \
+    mode; \
+    iData = readByte(iAddress); \
+    shiftRightWithCarry(iData); \
+    writeByte(iAddress, iData); \
+}
+
+#define aslMemory(mode) { \
+    mode; \
+    iData = readByte(iAddress); \
+    shiftLeftWithCarry(iData); \
+    writeByte(iAddress, iData); \
+}
+
+#define rotateLeftWithCarry(iValue) { \
+    iCarry := iStatus & F_CARRY; \
+    iStatus &= ^F_CARRY; \
+    iStatus |= ((iValue & F_NEGATIVE) >> 7); \
+    iValue = ((iValue << 1) | iCarry); \
+    updateNZ(iValue); \
+}
+
+#define rotateRightWithCarry(iValue) { \
+    iCarry := ((iStatus & F_CARRY) << 7); \
+    iStatus &= ^F_CARRY; \
+    iStatus |= (iValue & F_CARRY); \
+    iValue = ( (iValue >> 1) | iCarry ); \
+    updateNZ(iValue); \
+}
+
+#define rolMemory(mode) { \
+    mode; \
+    iData = readByte(iAddress); \
+    rotateLeftWithCarry(iData); \
+    writeByte(iAddress, iData); \
+}
+
+#define rorMemory(mode) { \
+    mode; \
+    iData = readByte(iAddress); \
+    rotateRightWithCarry(iData); \
+    writeByte(iAddress, iData); \
+}
+
+#define addByteWithCarry(iValue) { \
+    var iSum Word; \
+    if (iStatus & F_DECIMAL) != 0 { \
+        iSum = addBCDWithCarry(iValue, iAccumulator, iStatus); \
+    } else { \
+        iSum = Word(iStatus & F_CARRY) + Word(iValue) + Word(iAccumulator); \
+    }; \
+    iRes := Byte(iSum); \
+    iStatus &= F_CLR_NZCV; \
+    if iRes == 0 { iStatus |= F_ZERO } else { iStatus |= (iRes & F_NEGATIVE) }; \
+    if (iSum & 0x100) != 0 { iStatus |= F_CARRY }; \
+    if ((iValue & F_NEGATIVE) == (iAccumulator & F_NEGATIVE)) && \
+       ((iValue & F_NEGATIVE) != (iRes & F_NEGATIVE)) { \
+        iStatus |= F_OVERFLOW; \
+    }; \
+    iAccumulator = iRes; \
+}
+
+#define subByteWithCarry(iValue) { \
+    var iDiff Word; \
+    if (iStatus & F_DECIMAL) != 0 { \
+        iDiff = subBCDWithCarry(iValue, iAccumulator, iStatus); \
+    } else { \
+        iDiff = Word(iAccumulator) - Word(iValue) - Word((^iStatus) & F_CARRY); \
+    }; \
+    iRes := Byte(iDiff); \
+    iStatus &= F_CLR_NZCV; \
+    if iRes == 0 { iStatus |= F_ZERO } else { iStatus |= (iRes & F_NEGATIVE) }; \
+    if (iDiff & 0x100) == 0 { iStatus |= F_CARRY }; \
+    if ((iValue & F_NEGATIVE) != (iAccumulator & F_NEGATIVE)) && \
+       ((iAccumulator & F_NEGATIVE) != (iRes & F_NEGATIVE)) { \
+        iStatus |= F_OVERFLOW; \
+    }; \
+    iAccumulator = iRes; \
+}
+    
+#endif
