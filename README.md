@@ -129,7 +129,7 @@ The silicon and SixPhphive02 performance are completely insbisible at that scale
 - A final thought: since the 6502 could execute a NOP every 2 cycles, we could say that (at least for NOP) we're hitting a 3.5GHz 6502 equivalent.
 
 
-## IntuitionEngine 6502 Benchmark Port
+## Intuition Engine 6502 Benchmarks Port
 
 This project includes an additional suite of 6502 benchmarks ported from [Zayn Otley's Intuition Engine](https://github.com/IntuitionAmiga/IntuitionEngine). These benchmarks provide a standardized workload to compare the performance of this C++ emulator against the original Go-based interpreter and JIT implementations.
 
@@ -165,7 +165,29 @@ For shorter smoke checks, you can override the default duration:
 
 The script compiles the harness for each interpreter variant and prints a consolidated five-row performance table.
 
-### Intuition Comparative Results (MIPS)
+### Running the Unified Interpreter Matrix
+
+`run_all_interpreters.sh` is a single entry point that builds and benchmarks every interpreter variant this tree knows about against the same five workloads, and prints one sorted MIPS table. It covers three families of rows:
+
+1. The 8 C++ interpreters from `benchmark_matrix.mk` (same build set as `run_benchmarks.sh`).
+2. Two cpp->Go variants sourced from [IntuitionAmiga/G6502PP](https://github.com/IntuitionAmiga/G6502PP): `pinhot` (A, SR, PC, and the outside-memory pointer pinned to locals) and `pinall` (adds X/Y/S via `-DPIN_ALL`).
+3. Up to three rows from prebuilt Go `testing.B` benchmarks: `Interpreter`, `JIT`, and - when `./6502_bench_goasm.test` is also present - `Interpreter_goasm`, a bench binary linked with the Goasm-fused interpreter path enabled.
+
+```bash
+    cd src && ./run_all_interpreters.sh
+```
+
+Every cell is MIPS over the same `.bin` workload and instr/op count, so rows compare directly. Rows are sorted ascending by the Mixed column, so the current fastest sits at the bottom of the table.
+
+Knobs:
+
+- `BENCH_SECONDS=N` - wall-clock seconds per C++ / CppGo cell (default 5).
+- `BENCH_TIME=Ns` - `-test.benchtime` passed to the Go `testing.B` binaries (default matches `BENCH_SECONDS`).
+- `BENCH_BIN=path` and `BENCH_BIN_GOASM=path` - override the two prebuilt Go bench binaries.
+- `GOCPP_REPO=URL-or-path` - source for the CppGo_* rows. Defaults to the upstream URL and is shallow-cloned fresh each run. Setting it to a local checkout directory builds in-place, needs no `git`, and works offline. The CppGo_* rows are skipped when neither option is reachable.
+- `RAW=1` - dump the raw `testing.B` output from each bench binary before the summary table.
+
+### Intuition Engine Comparative Results (MIPS)
 
 The following table is one sample local run of the current benchmark matrix on the same i7-7500 machine under the same test conditions. As always, exact numbers are machine and duration-dependent, so treat it as an example rather than a canonical ranking.
 
@@ -764,5 +786,7 @@ For clarity, some tweaks are not shown here.
 To improve the throughput further, pinning further hot member variables is an obvious idea but it's also going to reduce the set of registers available to the optimiser for other purposes.
 
 I also attempted a lazy-flags approach. For almost every instruction, the status register has to be updated which involves a fair amount of bitwise manipulation. Instead, I tried copying the result of the last operation to a local temporary that can be used to evaluate the N and V flags at the point where they first become necessary, i.e. on a conditional branch. This ultimately proved detrimental to performance but it might be the case that it can be revisited.
+
+As a proof point that the interpreter plane still has headroom, see the Goasm-fused 6502 path in [Intuition Engine](https://github.com/IntuitionAmiga/IntuitionEngine) - the `Interpreter_goasm` row produced by `run_all_interpreters.sh`. With handwritten amd64 assembly for the hot dispatch it currently tops the unified matrix by a wide margin on Mixed, outperforming both the Go JIT and the fastest C++ variant in this tree - a useful reminder that a well-tuned interpreter can push further before a JIT becomes strictly necessary.
 
 Cycle exactness and known illegal instructions are desirable features to add if the emulator is ever going to be more than an educational exercise.
