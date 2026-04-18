@@ -1,6 +1,11 @@
 # Build two variants of the G6502PP (cpp -> Go) interpreter:
-#   bin/G65O2PP_nopin  (X/Y/S accessed through cpu struct, no register pinning)
-#   bin/G65O2PP_pin    (X/Y/S pinned to locals via -DPIN_ALL)
+#   bin/G65O2PP_pinhot  (A, SR, PC, and the outside-memory pointer are pinned
+#                       to locals — these are the hot-path registers. X, Y,
+#                       and S stay as cpu-struct field accesses.)
+#   bin/G65O2PP_pinall  (above plus X, Y, and S also pinned to locals,
+#                       selected via -DPIN_ALL. Empirically slower on current
+#                       Go: the extra live locals exceed what the register
+#                       allocator can keep hot across the big switch.)
 #
 # Each variant is preprocessed separately (so cpp sees the right macro set)
 # then compiled with the same aggressive Go flags.
@@ -23,15 +28,15 @@ GO_GCFLAGS := -gcflags=all=-B -l
 ENTRY    := src/main.go
 GH_DEPS  := $(wildcard src/*.gh)
 
-VARIANTS  := nopin pin
+VARIANTS  := pinhot pinall
 BINS      := $(VARIANTS:%=bin/G65O2PP_%)
 PROCESSED := $(VARIANTS:%=build/%/processed.go)
 VET_STAMP := $(VARIANTS:%=build/%/.vet.ok)
 LINT_STAMP:= $(VARIANTS:%=build/%/.lint.ok)
 
 # Per-variant cpp flag. Extend here for new variants.
-CPPFLAGS_pin   := -DPIN_ALL
-CPPFLAGS_nopin :=
+CPPFLAGS_pinall := -DPIN_ALL
+CPPFLAGS_pinhot :=
 
 # goimports consolidates the split import blocks cpp emits; fall back to gofmt.
 FMT := $(shell command -v goimports 2>/dev/null || echo gofmt)

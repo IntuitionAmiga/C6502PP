@@ -5,9 +5,14 @@
 #
 # Rows covered:
 #   1. Eight C++ interpreters (BENCHMARK_TARGETS from benchmark_matrix.mk).
-#   2. Two cpp->Go interpreters from src/go/ (nopin, pin).
-#   3. Two rows from the prebuilt Go testing.B binary src/6502_bench.test
-#      (Interpreter, JIT) when present.
+#   2. Two cpp->Go interpreters from src/go/:
+#        - pinhot  (A, SR, PC and the outside-memory pointer pinned to locals)
+#        - pinall  (above plus X, Y and S pinned via -DPIN_ALL)
+#   3. Three rows from prebuilt Go testing.B binaries when present:
+#        - Interpreter + JIT      from src/6502_bench.test
+#        - Interpreter_goasm      from src/6502_bench_goasm.test (same
+#          bench suite, but the binary was linked with the Goasm-fused
+#          6502 interpreter enabled)
 #
 # All rows are normalized to the same instr_per_op counts so every cell is an
 # apples-to-apples MIPS figure.
@@ -18,14 +23,16 @@
 # Environment:
 #   BENCH_SECONDS  wall-clock seconds per C++ / Go-cpp cell (default: 5)
 #   BENCH_TIME     -test.benchtime for 6502_bench.test     (default: ${BENCH_SECONDS}s)
-#   BENCH_BIN      path to the Go testing.B bench binary   (default: ./6502_bench.test)
-#   RAW            if set, also dump the raw 6502_bench.test output
+#   BENCH_BIN        path to the Go testing.B bench binary       (default: ./6502_bench.test)
+#   BENCH_BIN_GOASM  path to the Goasm-linked variant             (default: ./6502_bench_goasm.test)
+#   RAW              if set, also dump the raw testing.B output for both binaries
 
 set -eu
 
 BENCH_SECONDS="${BENCH_SECONDS:-5}"
 BENCH_TIME="${BENCH_TIME:-${BENCH_SECONDS}s}"
 BENCH_BIN="${BENCH_BIN:-./6502_bench.test}"
+BENCH_BIN_GOASM="${BENCH_BIN_GOASM:-./6502_bench_goasm.test}"
 
 # Workload name, binary path, instructions executed per one run-to-JAM.
 # The instr/op numbers are defined by the .bin content and match the values
@@ -93,7 +100,7 @@ else
 fi
 
 if [ "$gocpp_available" -eq 1 ]; then
-    for variant in nopin pin; do
+    for variant in pinhot pinall; do
         bin="go/bin/G65O2PP_$variant"
         label="CppGo_$variant"
         if [ ! -x "$bin" ]; then
@@ -109,48 +116,77 @@ if [ "$gocpp_available" -eq 1 ]; then
     done
 fi
 
-# --- Part 3: prebuilt Go testing.B bench binary -------------------------------
-gobench_ran=0
-if [ -x "$BENCH_BIN" ]; then
-    echo "==> Running $BENCH_BIN (Interpreter + JIT rows)"
-    if gobench_out=$("$BENCH_BIN" \
+# --- Part 3: prebuilt Go testing.B bench binaries -----------------------------
+# run_gobench <binary> <bench-regex> <interpreter-suffix>
+#   runs the given testing.B binary restricted to <bench-regex>, and labels
+#   parsed Interpreter rows as IntuitionEngine_Interpreter<suffix>. JIT rows
+#   are always labeled IntuitionEngine_JIT (the JIT path is the same codegen
+#   in both binaries, so we only want one set).
+run_gobench() {
+    local bin=$1 pattern=$2 suffix=$3
+    local out
+    if ! out=$("$bin" \
             -test.run '^$' \
-            -test.bench 'Benchmark6502_(ALU|Memory|Call|Branch|Mixed)_(Interpreter|JIT)' \
+            -test.bench "$pattern" \
             -test.benchtime "$BENCH_TIME" \
             -test.count 1 \
             -test.benchmem 2>&1); then
-        gobench_ran=1
-        [ -n "${RAW:-}" ] && { echo "--- raw $BENCH_BIN output ---"; echo "$gobench_out"; echo; }
-        printf '%s\n' "$gobench_out" | awk -v F="$results_file" '
-            /^Benchmark6502_/ {
-                name = $1; sub(/-[0-9]+$/, "", name)
-                if (!match(name, /_(ALU|Memory|Call|Branch|Mixed)_(Interpreter|JIT)$/)) next
-                pair = substr(name, RSTART+1, RLENGTH-1)
-                split(pair, p, "_")
-                ns = 0; ip = 0
-                for (i = 2; i <= NF; i++) {
-                    if ($i == "ns/op"           && i > 2) ns = $(i-1) + 0
-                    if ($i == "instructions/op" && i > 2) ip = $(i-1) + 0
-                }
-                if (ns > 0 && ip > 0) {
-                    mips = ip / ns * 1000.0
-                    printf "IntuitionEngine_%s,%s,%.2f\n", p[2], p[1], mips >> F
-                }
-            }'
-    else
-        echo "  ! $BENCH_BIN failed; IntuitionEngine rows will be empty" >&2
+        echo "  ! $bin failed; corresponding IntuitionEngine rows will be empty" >&2
+        return 1
     fi
+    [ -n "${RAW:-}" ] && { echo "--- raw $bin output ---"; echo "$out"; echo; }
+    printf '%s\n' "$out" | awk -v F="$results_file" -v SUF="$suffix" '
+        /^Benchmark6502_/ {
+            name = $1; sub(/-[0-9]+$/, "", name)
+            if (!match(name, /_(ALU|Memory|Call|Branch|Mixed)_(Interpreter|JIT)$/)) next
+            pair = substr(name, RSTART+1, RLENGTH-1)
+            split(pair, p, "_")
+            ns = 0; ip = 0
+            for (i = 2; i <= NF; i++) {
+                if ($i == "ns/op"           && i > 2) ns = $(i-1) + 0
+                if ($i == "instructions/op" && i > 2) ip = $(i-1) + 0
+            }
+            if (ns > 0 && ip > 0) {
+                mips = ip / ns * 1000.0
+                label = (p[2] == "Interpreter") ? "Interpreter" SUF : p[2]
+                printf "IntuitionEngine_%s,%s,%.2f\n", label, p[1], mips >> F
+            }
+        }'
+    return 0
+}
+
+gobench_ran=0
+if [ -x "$BENCH_BIN" ]; then
+    echo "==> Running $BENCH_BIN (Interpreter + JIT rows)"
+    run_gobench "$BENCH_BIN" \
+        'Benchmark6502_(ALU|Memory|Call|Branch|Mixed)_(Interpreter|JIT)' \
+        "" \
+        && gobench_ran=1
 else
     echo "==> Skipping $BENCH_BIN (not found or not executable)"
+fi
+
+goasm_ran=0
+if [ -x "$BENCH_BIN_GOASM" ]; then
+    echo "==> Running $BENCH_BIN_GOASM (Interpreter_goasm row)"
+    run_gobench "$BENCH_BIN_GOASM" \
+        'Benchmark6502_(ALU|Memory|Call|Branch|Mixed)_Interpreter' \
+        "_goasm" \
+        && goasm_ran=1
+else
+    echo "==> Skipping $BENCH_BIN_GOASM (not found or not executable)"
 fi
 
 # --- Table -------------------------------------------------------------------
 rows=( "${cpp_names[@]}" )
 if [ "$gocpp_available" -eq 1 ]; then
-    rows+=( "CppGo_nopin" "CppGo_pin" )
+    rows+=( "CppGo_pinhot" "CppGo_pinall" )
 fi
 if [ "$gobench_ran" -eq 1 ]; then
     rows+=( "IntuitionEngine_Interpreter" "IntuitionEngine_JIT" )
+fi
+if [ "$goasm_ran" -eq 1 ]; then
+    rows+=( "IntuitionEngine_Interpreter_goasm" )
 fi
 cols=(ALU Memory Call Branch Mixed)
 
@@ -168,8 +204,8 @@ done < <(for r in "${rows[@]}"; do
     printf '%s\t%s\n' "${results[$r,Mixed]:-0}" "$r"
 done | sort -k1,1n)
 
-LABEL_W=28
-printf -v bar '%93s' ''; bar=${bar// /=}
+LABEL_W=34
+printf -v bar '%99s' ''; bar=${bar// /=}
 printf -v dashes "%${LABEL_W}s" ''; dashes=${dashes// /-}
 echo
 echo "$bar"
